@@ -1,0 +1,7 @@
+[project]
+name = "tess-stt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["livekit-wakeword>=0.2.1", "pyaudio"]
