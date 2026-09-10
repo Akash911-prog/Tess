@@ -2,6 +2,7 @@
 node_modules
 /**/target
 /**/clips
+training-clips/
 
 # output
 out
