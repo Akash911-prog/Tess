@@ -2,6 +2,8 @@
     "python-envs.defaultEnvManager": "ms-python.python:system",
     "cSpell.words": [
         "livekit",
+        "pywintypes",
+        "thiserror",
         "wakeword"
     ]
 }

@@ -1,6 +1,54 @@
-use tess_core::logging::init_tracing;
+use tess_core::{
+    ipc::{self, PIPE_NAME},
+    logging::init_tracing,
+};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    net::windows::named_pipe::ServerOptions,
+};
 
 #[tokio::main]
 async fn main() {
     let _guard = init_tracing();
+
+    let mut server =
+        ipc::init_ipc_socket().expect("fatal: cannot bind IPC pipe. Stopping core process.");
+
+    let handle = tokio::spawn(async move {
+        loop {
+            if let Err(e) = server.connect().await {
+                tracing::error!(error = %e, "pipe connect failed, retrying");
+                match ServerOptions::new().create(PIPE_NAME) {
+                    Ok(new_server) => server = new_server,
+                    Err(e) => {
+                        tracing::error!(error = %e, "failed to recreate pipe, retrying");
+                        continue;
+                    }
+                }
+                continue;
+            }
+
+            let connected = server;
+
+            server = match ServerOptions::new().create(PIPE_NAME) {
+                Ok(new_server) => new_server,
+                Err(e) => {
+                    tracing::error!(error = %e, "failed to create next pipe instance");
+                    break; // can't continue accepting without a fresh instance
+                }
+            };
+
+            tracing::info!("connected to pipe");
+
+            let mut lines = BufReader::new(connected).lines();
+
+            while let Some(line) = lines.next_line().await.unwrap() {
+                tracing::debug!(raw_line = %line, "received line from pipe");
+
+                println!("{}", line);
+            }
+        }
+    });
+
+    let _ = handle.await;
 }

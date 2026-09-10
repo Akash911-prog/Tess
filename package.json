@@ -2,7 +2,7 @@
   "name": "tess",
   "scripts": {
     "dev:core": "cargo run --release --manifest-path tess-core/Cargo.toml",
-    "dev:stt": "wait-on %TEMP%/tess.sock && uv run tess-stt/main.py",
+    "dev:stt": "uv run tess-stt/main.py",
     "dev": "concurrently -n core,stt -c blue,green \"bun run dev:core\" \"bun run dev:stt\""
   },
   "devDependencies": {
