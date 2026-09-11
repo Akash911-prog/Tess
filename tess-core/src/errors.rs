@@ -20,9 +20,15 @@ pub enum IpcError {
 }
 
 #[derive(Error, Debug)]
-pub enum _DispatchError {
+pub enum DispatchError {
     #[error("no skill registered for intent '{0}'")]
     UnknownIntent(String),
+
+    #[error("intent '{intent}' is already registered by skill '{existing_skill}'")]
+    DuplicateIntent {
+        intent: String,
+        existing_skill: String,
+    },
 
     #[error("skill '{skill}' failed executing '{intent}': {source}")]
     SkillExecution {

@@ -17,7 +17,7 @@ pub fn init_ipc_socket() -> Result<NamedPipeServer, IpcError> {
 pub async fn handle_connection(pipe: NamedPipeServer, bus: EventBus) {
     let mut lines = BufReader::new(pipe).lines();
 
-    while let Some(line) = lines.next_line().await.unwrap() {
+    while let Ok(Some(line)) = lines.next_line().await {
         tracing::debug!(raw_line = %line, "received line from pipe");
 
         let event = serde_json::from_str::<TranscriptEvent>(&line);

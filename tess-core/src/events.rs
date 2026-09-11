@@ -21,10 +21,13 @@ impl Display for TranscriptEvent {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Event {
     pub trace_id: String,
     pub intent: String,
     pub args: Vec<String>,
     pub confidence: f32,
 }
+
+/// Convenient domain alias for an intent-classified `Event`.
+pub type Command = Event;

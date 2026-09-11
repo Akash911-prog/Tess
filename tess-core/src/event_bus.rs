@@ -10,8 +10,8 @@ pub struct EventBus {
 }
 
 impl EventBus {
-    pub fn new() -> Self {
-        let (sender, _) = broadcast::channel::<Arc<TranscriptEvent>>(10);
+    pub fn new(buffer_size: usize) -> Self {
+        let (sender, _) = broadcast::channel::<Arc<TranscriptEvent>>(buffer_size);
         Self { sender }
     }
 
@@ -22,5 +22,11 @@ impl EventBus {
 
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<TranscriptEvent>> {
         self.sender.subscribe()
+    }
+}
+
+impl Default for EventBus {
+    fn default() -> Self {
+        Self::new(200)
     }
 }

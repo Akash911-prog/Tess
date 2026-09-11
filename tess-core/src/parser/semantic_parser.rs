@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::Ok;
+
 use crate::{
     errors::ParserError,
     events::{Event, TranscriptEvent},

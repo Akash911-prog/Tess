@@ -1,7 +1,7 @@
-mod errors;
+pub mod errors;
 pub mod event_bus;
-mod events;
+pub mod events;
 pub mod ipc;
 pub mod logging;
 pub mod parser;
-mod registry;
+pub mod registry;

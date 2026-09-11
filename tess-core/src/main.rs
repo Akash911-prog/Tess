@@ -11,8 +11,8 @@ use tokio::net::windows::named_pipe::ServerOptions;
 #[tokio::main]
 async fn main() {
     let _guard = init_tracing();
-    let global_bus = EventBus::new();
-    let global_parser = Arc::new(Parser::new());
+    let global_bus = EventBus::default();
+    let global_parser = Arc::new(Parser::default());
 
     global_parser
         .init()
