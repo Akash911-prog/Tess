@@ -1,80 +1,69 @@
-use crate::registry::{BoxFuture, IntentDescriptor, Skill};
+use crate::registry::{ArgKind, ArgSpec};
 
-pub struct MediaSkill;
+crate::skill! {
+    struct MediaSkill;
+    name = "media";
 
-impl Skill for MediaSkill {
-    fn name(&self) -> &'static str {
-        "media"
+    intent "media.pause" {
+        desc: "Pause playback",
+        args: [],
+        exemplars: ["pause music", "stop playback", "pause song"],
     }
 
-    fn intents(&self) -> Vec<IntentDescriptor> {
-        vec![
-            IntentDescriptor::new(
-                "media.pause",
-                "Pause playback",
-                &[],
-                &["pause music", "stop playback", "pause song"],
-            ),
-            IntentDescriptor::new(
-                "media.play",
-                "Resume playback",
-                &[],
-                &["play music", "resume music", "start the song"],
-            ),
-            IntentDescriptor::new(
-                "media.next",
-                "Skip to the next track",
-                &[],
-                &[
-                    "next song",
-                    "skip this track",
-                    "play next track",
-                    "skip to next song",
-                    "next track please",
-                ],
-            ),
-            IntentDescriptor::new(
-                "media.previous",
-                "Skip to the previous track",
-                &[],
-                &[
-                    "previous song",
-                    "go back to the previous track",
-                    "play previous track",
-                    "previous track please",
-                ],
-            ),
-            IntentDescriptor::new(
-                "media.skip",
-                "Skip video/media by a certain duration",
-                &[],
-                &[
-                    "skip",
-                    "skip 20 seconds",
-                    "forward 30 seconds",
-                    "go ahead by a minute",
-                    "skip 10 minutes",
-                ],
-            ),
-            IntentDescriptor::new(
-                "media.back",
-                "rewind video/media by a certain duration",
-                &["optional: duration"],
-                &[
-                    "rewind",
-                    "rewind 20 seconds",
-                    "go back 30 seconds",
-                    "go back by a minute",
-                    "rewind 10 minutes",
-                ],
-            ),
-        ]
+    intent "media.play" {
+        desc: "Resume playback",
+        args: [],
+        exemplars: ["play music", "resume music", "start the song"],
     }
 
-    fn execute<'a>(
-        &'a self,
-        _command: &'a crate::events::Event,
-    ) -> BoxFuture<'a, Result<crate::registry::ExecutionResult, anyhow::Error>> {
-        todo!()
+    intent "media.next" {
+        desc: "Skip to the next track",
+        args: [],
+        exemplars: [
+            "next song",
+            "skip this track",
+            "play next track",
+            "skip to next song",
+            "next track please",
+        ],
+    }
+
+    intent "media.previous" {
+        desc: "Skip to the previous track",
+        args: [],
+        exemplars: [
+            "previous song",
+            "go back to the previous track",
+            "play previous track",
+            "previous track please",
+        ],
+    }
+
+    intent "media.skip" {
+        desc: "Skip video/media forward by a duration",
+        args: [ArgSpec::optional("duration", ArgKind::Duration)],
+        exemplars: [
+            "skip",
+            "skip 20 seconds",
+            "forward 30 seconds",
+            "go ahead by a minute",
+            "skip 10 minutes",
+        ],
+    }
+
+    intent "media.back" {
+        desc: "Rewind video/media by a duration",
+        args: [ArgSpec::optional("duration", ArgKind::Duration)],
+        exemplars: [
+            "rewind",
+            "rewind 20 seconds",
+            "go back 30 seconds",
+            "go back by a minute",
+            "rewind 10 minutes",
+        ],
+    }
+
+    execute(command) {
+        todo!("wire up OS media-control backend for '{}'", command.intent)
     }
 }

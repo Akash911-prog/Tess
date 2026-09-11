@@ -29,6 +29,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "media.pause",
             "Pauses ongoing audio or video playback",
+            &[],
             &[
                 "pause music",
                 "pause the song",
@@ -41,6 +42,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "media.play",
             "Resumes or starts playback",
+            &[],
             &[
                 "play music",
                 "resume music",
@@ -53,6 +55,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "media.next",
             "Skips to the next track",
+            &[],
             &[
                 "next song",
                 "skip this track",
@@ -64,6 +67,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "system.volume_up",
             "Increases the system output volume",
+            &[],
             &[
                 "turn up volume",
                 "increase sound",
@@ -76,6 +80,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "system.volume_down",
             "Decreases the system output volume",
+            &[],
             &[
                 "lower volume",
                 "turn down volume",
@@ -88,6 +93,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "app.open",
             "Launches an application",
+            &[],
             &[
                 "open browser",
                 "launch application",
@@ -99,6 +105,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
         IntentDescriptor::new(
             "timer.set",
             "Creates or starts a countdown timer",
+            &[],
             &[
                 "set a timer for five minutes",
                 "start a timer",

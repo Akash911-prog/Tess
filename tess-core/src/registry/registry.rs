@@ -30,6 +30,24 @@ impl SkillRegistry {
         Self::default()
     }
 
+    /// Builds a registry pre-populated with every skill compiled into the binary.
+    ///
+    /// This is the sole integration point between the fixed skill list in
+    /// [`skills::all`](crate::registry::skills::all) and the rest of the dispatch
+    /// pipeline: this function, [`SkillRegistry`] itself, and `main.rs` never need
+    /// to change when a skill is added — only `skills::all` does.
+    ///
+    /// # Errors
+    /// Returns `DispatchError::DuplicateIntent` if two compiled-in skills declare
+    /// the same intent id.
+    pub fn bootstrap() -> Result<Self, DispatchError> {
+        let mut registry = Self::new();
+        for skill in crate::registry::skills::all() {
+            registry.register_arc(skill)?;
+        }
+        Ok(registry)
+    }
+
     /// Registers a skill by value, boxing it in an `Arc`.
     ///
     /// # Errors
@@ -172,6 +190,18 @@ mod tests {
 
         let res = registry.dispatch(&cmd).await.unwrap();
         assert_eq!(res.feedback.as_deref(), Some("Playback paused"));
+    }
+
+    #[test]
+    fn test_bootstrap_registers_all_compiled_in_skills_without_conflict() {
+        // Exercises the real skills::all() manifest end-to-end: if two compiled-in
+        // skills ever collide on an intent id, this fails loudly at test time
+        // instead of at process startup.
+        let registry = SkillRegistry::bootstrap().expect("compiled-in skills must not collide");
+
+        assert!(registry.has_intent("media.pause"));
+        assert!(registry.has_intent("system.volume_up"));
+        assert!(!registry.catalog().is_empty());
     }
 
     #[test]

@@ -5,6 +5,7 @@ use tess_core::{
     ipc::{self, PIPE_NAME},
     logging::init_tracing,
     parser::Parser,
+    registry::SkillRegistry,
 };
 use tokio::net::windows::named_pipe::ServerOptions;
 
@@ -13,20 +14,28 @@ async fn main() {
     let _guard = init_tracing();
     let global_bus = EventBus::default();
     let global_parser = Arc::new(Parser::default());
+    let global_registry = Arc::new(
+        SkillRegistry::bootstrap()
+            .expect("fatal: duplicate intent registered by compiled-in skills"),
+    );
 
+    global_parser
+        .load_catalog(global_registry.catalog())
+        .expect("fatal: failed to load intent catalog into parser");
     global_parser
         .init()
         .expect("fatal: failed to initialize parser");
 
     let mut rx = global_bus.subscribe();
     let parser = global_parser.clone();
+    let registry = global_registry.clone();
     tokio::spawn(async move {
         while let Ok(event) = rx.recv().await {
             tracing::debug!(event_trace_id = ?&event.trace_id, "received transcript event");
 
             match parser.parse(event) {
                 Ok(commands) => {
-                    commands.iter().for_each(|command| {
+                    for command in &commands {
                         tracing::info!(
                             trace_id = %command.trace_id,
                             intent = %command.intent,
@@ -34,9 +43,26 @@ async fn main() {
                             confidence = %command.confidence,
                             "parsed command"
                         );
-                    });
 
-                    // TODO: registry.dispatch(command) goes here
+                        match registry.dispatch(command).await {
+                            Ok(result) => {
+                                if let Some(feedback) = result.feedback {
+                                    tracing::info!(
+                                        trace_id = %command.trace_id,
+                                        %feedback,
+                                        "skill execution succeeded"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    trace_id = %command.trace_id,
+                                    error = %e,
+                                    "skill dispatch failed"
+                                );
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     tracing::error!(error = %e, "failed to parse transcript event");

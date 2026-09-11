@@ -2,6 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::events::Event;
+use crate::registry::args::ArgSpec;
 
 /// Type alias for pinned, heap-allocated futures returned by object-safe async trait methods.
 ///
@@ -22,8 +23,10 @@ pub struct IntentDescriptor {
     /// Human-readable explanation of what this intent accomplishes.
     pub description: &'static str,
 
-    // parameters / args needed
-    pub args: &'static [&'static str],
+    /// The typed argument schema this intent accepts. Use
+    /// [`ArgSpec::parse_all`](crate::registry::ArgSpec::parse_all) inside `execute`
+    /// to validate and coerce an `Event`'s raw args against this schema.
+    pub args: &'static [ArgSpec],
 
     /// Canonical anchor phrases and user utterances used by the semantic parser
     /// to generate vector embeddings for cosine similarity matching.
@@ -35,7 +38,7 @@ impl IntentDescriptor {
     pub const fn new(
         id: &'static str,
         description: &'static str,
-        args: &'static [&'static str],
+        args: &'static [ArgSpec],
         exemplars: &'static [&'static str],
     ) -> Self {
         Self {

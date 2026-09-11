@@ -1,0 +1,717 @@
+diff --git a/tess-core/src/main.rs b/tess-core/src/main.rs
+index 3348028..071cdb8 100644
+--- a/tess-core/src/main.rs
++++ b/tess-core/src/main.rs
+@@ -5,6 +5,7 @@ use tess_core::{
+     ipc::{self, PIPE_NAME},
+     logging::init_tracing,
+     parser::Parser,
++    registry::SkillRegistry,
+ };
+ use tokio::net::windows::named_pipe::ServerOptions;
+ 
+@@ -13,20 +14,28 @@ async fn main() {
+     let _guard = init_tracing();
+     let global_bus = EventBus::default();
+     let global_parser = Arc::new(Parser::default());
++    let global_registry = Arc::new(
++        SkillRegistry::bootstrap()
++            .expect("fatal: duplicate intent registered by compiled-in skills"),
++    );
+ 
++    global_parser
++        .load_catalog(global_registry.catalog())
++        .expect("fatal: failed to load intent catalog into parser");
+     global_parser
+         .init()
+         .expect("fatal: failed to initialize parser");
+ 
+     let mut rx = global_bus.subscribe();
+     let parser = global_parser.clone();
++    let registry = global_registry.clone();
+     tokio::spawn(async move {
+         while let Ok(event) = rx.recv().await {
+             tracing::debug!(event_trace_id = ?&event.trace_id, "received transcript event");
+ 
+             match parser.parse(event) {
+                 Ok(commands) => {
+-                    commands.iter().for_each(|command| {
++                    for command in &commands {
+                         tracing::info!(
+                             trace_id = %command.trace_id,
+                             intent = %command.intent,
+@@ -34,9 +43,26 @@ async fn main() {
+                             confidence = %command.confidence,
+                             "parsed command"
+                         );
+-                    });
+ 
+-                    // TODO: registry.dispatch(command) goes here
++                        match registry.dispatch(command).await {
++                            Ok(result) => {
++                                if let Some(feedback) = result.feedback {
++                                    tracing::info!(
++                                        trace_id = %command.trace_id,
++                                        %feedback,
++                                        "skill execution succeeded"
++                                    );
++                                }
++                            }
++                            Err(e) => {
++                                tracing::error!(
++                                    trace_id = %command.trace_id,
++                                    error = %e,
++                                    "skill dispatch failed"
++                                );
++                            }
++                        }
++                    }
+                 }
+                 Err(e) => {
+                     tracing::error!(error = %e, "failed to parse transcript event");
+diff --git a/tess-core/src/registry/args.rs b/tess-core/src/registry/args.rs
+new file mode 100644
+index 0000000..0e73d0f
+--- /dev/null
++++ b/tess-core/src/registry/args.rs
+@@ -0,0 +1,221 @@
++//! Typed argument schema for intents.
++//!
++//! Previously, [`IntentDescriptor`](crate::registry::IntentDescriptor) declared its
++//! arguments as free-form documentation strings (e.g. `"optional: duration"`) that
++//! nothing ever parsed or validated. [`ArgSpec`] replaces that with a real,
++//! compiler-checked schema: a name, an [`ArgKind`], and whether it's required.
++//! [`ArgSpec::parse_all`] turns a skill's raw positional arguments into typed
++//! [`ArgValue`]s against that schema, so a skill's `execute` can pull out a
++//! `Duration` or an `i64` directly instead of hand-parsing strings.
++//!
++//! Adding a new argument shape is the only place this module needs to grow
++//! (a new [`ArgKind`] variant); every skill that declares its arguments through
++//! [`ArgSpec`] keeps working unchanged.
++
++use std::collections::HashMap;
++use std::time::Duration;
++
++use thiserror::Error;
++
++/// The shape of a single argument value.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum ArgKind {
++    /// Free-form text, taken as-is.
++    Text,
++    /// A whole number (e.g. a volume level).
++    Integer,
++    /// A span of time (e.g. "20 seconds" -> `Duration::from_secs(20)`).
++    Duration,
++    /// One of a fixed, closed set of values (e.g. an on/off toggle).
++    Enum(&'static [&'static str]),
++}
++
++/// A typed, parsed argument value, produced by [`ArgSpec::parse_all`].
++#[derive(Debug, Clone, PartialEq)]
++pub enum ArgValue {
++    Text(String),
++    Integer(i64),
++    Duration(Duration),
++    Enum(&'static str),
++}
++
++/// Declares one named argument an intent accepts, and whether it must be present.
++///
++/// `ArgSpec` construction is `const`, so descriptors built from `ArgSpec`s remain
++/// eligible for the same `'static` rvalue promotion the rest of the registry relies
++/// on (see [`IntentDescriptor::new`](crate::registry::IntentDescriptor::new)).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub struct ArgSpec {
++    pub name: &'static str,
++    pub kind: ArgKind,
++    pub required: bool,
++}
++
++/// Errors produced while validating raw arguments against an [`ArgSpec`] schema.
++#[derive(Debug, Error, Clone, PartialEq)]
++pub enum ArgError {
++    #[error("missing required argument '{name}'")]
++    Missing { name: &'static str },
++
++    #[error("argument '{name}' has invalid value '{raw}' for its declared type")]
++    InvalidValue { name: &'static str, raw: String },
++}
++
++impl ArgSpec {
++    /// Declares a required argument.
++    pub const fn required(name: &'static str, kind: ArgKind) -> Self {
++        Self {
++            name,
++            kind,
++            required: true,
++        }
++    }
++
++    /// Declares an optional argument.
++    pub const fn optional(name: &'static str, kind: ArgKind) -> Self {
++        Self {
++            name,
++            kind,
++            required: false,
++        }
++    }
++
++    /// Validates and coerces a positional list of raw argument tokens against a full
++    /// intent's argument schema, matched in declaration order.
++    ///
++    /// Extra raw tokens beyond the declared specs are ignored. A missing token for a
++    /// required spec, or a token that doesn't fit its declared [`ArgKind`], is an error.
++    pub fn parse_all(
++        specs: &[ArgSpec],
++        raw: &[String],
++    ) -> Result<HashMap<&'static str, ArgValue>, ArgError> {
++        let mut parsed = HashMap::with_capacity(specs.len());
++
++        for (spec, token) in specs.iter().zip(raw.iter()) {
++            parsed.insert(spec.name, spec.parse(token)?);
++        }
++
++        for spec in specs.iter().skip(raw.len()) {
++            if spec.required {
++                return Err(ArgError::Missing { name: spec.name });
++            }
++        }
++
++        Ok(parsed)
++    }
++
++    /// Parses a single raw token against this spec's [`ArgKind`].
++    fn parse(&self, raw: &str) -> Result<ArgValue, ArgError> {
++        let invalid = || ArgError::InvalidValue {
++            name: self.name,
++            raw: raw.to_string(),
++        };
++
++        match self.kind {
++            ArgKind::Text => Ok(ArgValue::Text(raw.to_string())),
++            ArgKind::Integer => raw.parse::<i64>().map(ArgValue::Integer).map_err(|_| invalid()),
++            ArgKind::Duration => parse_duration(raw).map(ArgValue::Duration).ok_or_else(invalid),
++            ArgKind::Enum(allowed) => allowed
++                .iter()
++                .copied()
++                .find(|candidate| candidate.eq_ignore_ascii_case(raw))
++                .map(ArgValue::Enum)
++                .ok_or_else(invalid),
++        }
++    }
++}
++
++/// Parses a deliberately small `<amount> <unit>` grammar (e.g. `"20 seconds"`,
++/// `"1 minute"`, `"30s"`) into a [`Duration`].
++///
++/// This intentionally does not attempt general natural-language number parsing
++/// (e.g. "a minute") — normalizing spoken text into that shape is the parser's job,
++/// not this schema's.
++fn parse_duration(raw: &str) -> Option<Duration> {
++    let raw = raw.trim().to_ascii_lowercase();
++    let mut tokens = raw.split_whitespace();
++    let first = tokens.next()?;
++
++    // Accept both spaced ("20 seconds") and compact ("20s") forms by splitting the
++    // first token into its leading digits and trailing unit when there's no second
++    // token to serve as the unit.
++    let (amount_str, unit) = match tokens.next() {
++        Some(unit) => (first, unit),
++        None => {
++            let split_at = first
++                .find(|c: char| !c.is_ascii_digit())
++                .unwrap_or(first.len());
++            let (amount, unit) = first.split_at(split_at);
++            (amount, if unit.is_empty() { "s" } else { unit })
++        }
++    };
++
++    let amount: u64 = amount_str.parse().ok()?;
++
++    let seconds = match unit {
++        "s" | "sec" | "secs" | "second" | "seconds" => amount,
++        "m" | "min" | "mins" | "minute" | "minutes" => amount * 60,
++        "h" | "hr" | "hrs" | "hour" | "hours" => amount * 3600,
++        _ => return None,
++    };
++
++    Some(Duration::from_secs(seconds))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn test_parse_all_fills_required_and_optional_args() {
++        const SPECS: &[ArgSpec] = &[
++            ArgSpec::required("level", ArgKind::Integer),
++            ArgSpec::optional("mode", ArgKind::Enum(&["on", "off"])),
++        ];
++
++        let raw = vec!["7".to_string(), "on".to_string()];
++        let parsed = ArgSpec::parse_all(SPECS, &raw).unwrap();
++
++        assert_eq!(parsed.get("level"), Some(&ArgValue::Integer(7)));
++        assert_eq!(parsed.get("mode"), Some(&ArgValue::Enum("on")));
++    }
++
++    #[test]
++    fn test_parse_all_missing_required_arg_errors() {
++        const SPECS: &[ArgSpec] = &[ArgSpec::required("level", ArgKind::Integer)];
++
++        let err = ArgSpec::parse_all(SPECS, &[]).unwrap_err();
++        assert_eq!(err, ArgError::Missing { name: "level" });
++    }
++
++    #[test]
++    fn test_parse_all_missing_optional_arg_is_fine() {
++        const SPECS: &[ArgSpec] = &[ArgSpec::optional("duration", ArgKind::Duration)];
++
++        let parsed = ArgSpec::parse_all(SPECS, &[]).unwrap();
++        assert!(parsed.is_empty());
++    }
++
++    #[test]
++    fn test_parse_duration_units() {
++        assert_eq!(parse_duration("20 seconds"), Some(Duration::from_secs(20)));
++        assert_eq!(parse_duration("1 minute"), Some(Duration::from_secs(60)));
++        assert_eq!(parse_duration("30s"), Some(Duration::from_secs(30)));
++        assert_eq!(parse_duration("not a duration"), None);
++    }
++
++    #[test]
++    fn test_invalid_integer_errors() {
++        const SPECS: &[ArgSpec] = &[ArgSpec::required("level", ArgKind::Integer)];
++        let raw = vec!["loud".to_string()];
++
++        let err = ArgSpec::parse_all(SPECS, &raw).unwrap_err();
++        assert_eq!(
++            err,
++            ArgError::InvalidValue {
++                name: "level",
++                raw: "loud".to_string()
++            }
++        );
++    }
++}
+diff --git a/tess-core/src/registry/macros.rs b/tess-core/src/registry/macros.rs
+new file mode 100644
+index 0000000..1ba7034
+--- /dev/null
++++ b/tess-core/src/registry/macros.rs
+@@ -0,0 +1,70 @@
++//! Declarative skill definition.
++//!
++//! [`skill!`] is the single entry point for defining a
++//! [`Skill`](crate::registry::Skill). It expands to the full `impl Skill for
++//! <Type>` block — the struct, `name()`, `intents()`, and the `BoxFuture`/`Box::pin`
++//! wiring for `execute()` — so a skill author writes only the parts that are
++//! actually specific to their skill: the intent catalog and the execution body.
++//!
++//! This keeps [`SkillRegistry`](crate::registry::SkillRegistry) and the parser
++//! closed for modification: adding a capability means writing one `skill!` block
++//! in a new file and listing it in
++//! [`skills::all`](crate::registry::skills::all); nothing in the registry, the
++//! parser, or `main.rs` ever needs to change.
++#[macro_export]
++macro_rules! skill {
++    (
++        struct $struct_name:ident;
++        name = $skill_name:literal;
++        $(
++            intent $intent_id:literal {
++                desc: $desc:literal,
++                args: [ $( $arg:expr ),* $(,)? ],
++                exemplars: [ $( $exemplar:literal ),+ $(,)? ],
++            }
++        )+
++        execute($cmd:ident) $body:block
++    ) => {
++        /// Skill definition generated by the `skill!` macro; see its declaration
++        /// site for the intents it handles.
++        pub struct $struct_name;
++
++        impl $crate::registry::Skill for $struct_name {
++            fn name(&self) -> &'static str {
++                $skill_name
++            }
++
++            fn intents(&self) -> ::std::vec::Vec<$crate::registry::IntentDescriptor> {
++                ::std::vec![
++                    $(
++                        $crate::registry::IntentDescriptor::new(
++                            $intent_id,
++                            $desc,
++                            {
++                                // A plain `&[ $arg ),* ]` here is a temporary: rvalue
++                                // static promotion only applies to literals, not to
++                                // `const fn` calls like `ArgSpec::optional(..)` in a
++                                // non-const expression position. Binding it through a
++                                // block-scoped `const` forces real const evaluation, so
++                                // the array itself has `'static` storage.
++                                const ARGS: &[$crate::registry::ArgSpec] = &[ $( $arg ),* ];
++                                ARGS
++                            },
++                            &[ $( $exemplar ),+ ],
++                        ),
++                    )+
++                ]
++            }
++
++            fn execute<'a>(
++                &'a self,
++                $cmd: &'a $crate::events::Event,
++            ) -> $crate::registry::BoxFuture<
++                'a,
++                ::std::result::Result<$crate::registry::ExecutionResult, ::anyhow::Error>,
++            > {
++                ::std::boxed::Box::pin(async move { $body })
++            }
++        }
++    };
++}
+diff --git a/tess-core/src/registry/mod.rs b/tess-core/src/registry/mod.rs
+index 4368b29..171f7d8 100644
+--- a/tess-core/src/registry/mod.rs
++++ b/tess-core/src/registry/mod.rs
+@@ -1,6 +1,9 @@
++pub mod args;
++mod macros;
+ pub mod registry;
+ pub mod skill;
+ pub mod skills;
+ 
++pub use args::{ArgError, ArgKind, ArgSpec, ArgValue};
+ pub use registry::SkillRegistry;
+ pub use skill::{BoxFuture, ExecutionResult, IntentDescriptor, Skill};
+diff --git a/tess-core/src/registry/registry.rs b/tess-core/src/registry/registry.rs
+index 91fa937..c91c6db 100644
+--- a/tess-core/src/registry/registry.rs
++++ b/tess-core/src/registry/registry.rs
+@@ -30,6 +30,24 @@ impl SkillRegistry {
+         Self::default()
+     }
+ 
++    /// Builds a registry pre-populated with every skill compiled into the binary.
++    ///
++    /// This is the sole integration point between the fixed skill list in
++    /// [`skills::all`](crate::registry::skills::all) and the rest of the dispatch
++    /// pipeline: this function, [`SkillRegistry`] itself, and `main.rs` never need
++    /// to change when a skill is added — only `skills::all` does.
++    ///
++    /// # Errors
++    /// Returns `DispatchError::DuplicateIntent` if two compiled-in skills declare
++    /// the same intent id.
++    pub fn bootstrap() -> Result<Self, DispatchError> {
++        let mut registry = Self::new();
++        for skill in crate::registry::skills::all() {
++            registry.register_arc(skill)?;
++        }
++        Ok(registry)
++    }
++
+     /// Registers a skill by value, boxing it in an `Arc`.
+     ///
+     /// # Errors
+@@ -174,6 +192,18 @@ mod tests {
+         assert_eq!(res.feedback.as_deref(), Some("Playback paused"));
+     }
+ 
++    #[test]
++    fn test_bootstrap_registers_all_compiled_in_skills_without_conflict() {
++        // Exercises the real skills::all() manifest end-to-end: if two compiled-in
++        // skills ever collide on an intent id, this fails loudly at test time
++        // instead of at process startup.
++        let registry = SkillRegistry::bootstrap().expect("compiled-in skills must not collide");
++
++        assert!(registry.has_intent("media.pause"));
++        assert!(registry.has_intent("system.volume_up"));
++        assert!(!registry.catalog().is_empty());
++    }
++
+     #[test]
+     fn test_duplicate_intent_error() {
+         let mut registry = SkillRegistry::new();
+diff --git a/tess-core/src/registry/skill.rs b/tess-core/src/registry/skill.rs
+index 8aade8a..44ba281 100644
+--- a/tess-core/src/registry/skill.rs
++++ b/tess-core/src/registry/skill.rs
+@@ -2,6 +2,7 @@ use std::future::Future;
+ use std::pin::Pin;
+ 
+ use crate::events::Event;
++use crate::registry::args::ArgSpec;
+ 
+ /// Type alias for pinned, heap-allocated futures returned by object-safe async trait methods.
+ ///
+@@ -22,8 +23,10 @@ pub struct IntentDescriptor {
+     /// Human-readable explanation of what this intent accomplishes.
+     pub description: &'static str,
+ 
+-    // parameters / args needed
+-    pub args: &'static [&'static str],
++    /// The typed argument schema this intent accepts. Use
++    /// [`ArgSpec::parse_all`](crate::registry::ArgSpec::parse_all) inside `execute`
++    /// to validate and coerce an `Event`'s raw args against this schema.
++    pub args: &'static [ArgSpec],
+ 
+     /// Canonical anchor phrases and user utterances used by the semantic parser
+     /// to generate vector embeddings for cosine similarity matching.
+@@ -35,7 +38,7 @@ impl IntentDescriptor {
+     pub const fn new(
+         id: &'static str,
+         description: &'static str,
+-        args: &'static [&'static str],
++        args: &'static [ArgSpec],
+         exemplars: &'static [&'static str],
+     ) -> Self {
+         Self {
+diff --git a/tess-core/src/registry/skills/media.rs b/tess-core/src/registry/skills/media.rs
+index 4624d48..34367c1 100644
+--- a/tess-core/src/registry/skills/media.rs
++++ b/tess-core/src/registry/skills/media.rs
+@@ -1,80 +1,69 @@
+-use crate::registry::{BoxFuture, IntentDescriptor, Skill};
++use crate::registry::{ArgKind, ArgSpec};
+ 
+-pub struct MediaSkill;
++crate::skill! {
++    struct MediaSkill;
++    name = "media";
+ 
+-impl Skill for MediaSkill {
+-    fn name(&self) -> &'static str {
+-        "media"
++    intent "media.pause" {
++        desc: "Pause playback",
++        args: [],
++        exemplars: ["pause music", "stop playback", "pause song"],
+     }
+ 
+-    fn intents(&self) -> Vec<IntentDescriptor> {
+-        vec![
+-            IntentDescriptor::new(
+-                "media.pause",
+-                "Pause playback",
+-                &[],
+-                &["pause music", "stop playback", "pause song"],
+-            ),
+-            IntentDescriptor::new(
+-                "media.play",
+-                "Resume playback",
+-                &[],
+-                &["play music", "resume music", "start the song"],
+-            ),
+-            IntentDescriptor::new(
+-                "media.next",
+-                "Skip to the next track",
+-                &[],
+-                &[
+-                    "next song",
+-                    "skip this track",
+-                    "play next track",
+-                    "skip to next song",
+-                    "next track please",
+-                ],
+-            ),
+-            IntentDescriptor::new(
+-                "media.previous",
+-                "Skip to the previous track",
+-                &[],
+-                &[
+-                    "previous song",
+-                    "go back to the previous track",
+-                    "play previous track",
+-                    "previous track please",
+-                ],
+-            ),
+-            IntentDescriptor::new(
+-                "media.skip",
+-                "Skip video/media by a certain duration",
+-                &[],
+-                &[
+-                    "skip",
+-                    "skip 20 seconds",
+-                    "forward 30 seconds",
+-                    "go ahead by a minute",
+-                    "skip 10 minutes",
+-                ],
+-            ),
+-            IntentDescriptor::new(
+-                "media.back",
+-                "rewind video/media by a certain duration",
+-                &["optional: duration"],
+-                &[
+-                    "rewind",
+-                    "rewind 20 seconds",
+-                    "go back 30 seconds",
+-                    "go back by a minute",
+-                    "rewind 10 minutes",
+-                ],
+-            ),
+-        ]
++    intent "media.play" {
++        desc: "Resume playback",
++        args: [],
++        exemplars: ["play music", "resume music", "start the song"],
+     }
+ 
+-    fn execute<'a>(
+-        &'a self,
+-        _command: &'a crate::events::Event,
+-    ) -> BoxFuture<'a, Result<crate::registry::ExecutionResult, anyhow::Error>> {
+-        todo!()
++    intent "media.next" {
++        desc: "Skip to the next track",
++        args: [],
++        exemplars: [
++            "next song",
++            "skip this track",
++            "play next track",
++            "skip to next song",
++            "next track please",
++        ],
++    }
++
++    intent "media.previous" {
++        desc: "Skip to the previous track",
++        args: [],
++        exemplars: [
++            "previous song",
++            "go back to the previous track",
++            "play previous track",
++            "previous track please",
++        ],
++    }
++
++    intent "media.skip" {
++        desc: "Skip video/media forward by a duration",
++        args: [ArgSpec::optional("duration", ArgKind::Duration)],
++        exemplars: [
++            "skip",
++            "skip 20 seconds",
++            "forward 30 seconds",
++            "go ahead by a minute",
++            "skip 10 minutes",
++        ],
++    }
++
++    intent "media.back" {
++        desc: "Rewind video/media by a duration",
++        args: [ArgSpec::optional("duration", ArgKind::Duration)],
++        exemplars: [
++            "rewind",
++            "rewind 20 seconds",
++            "go back 30 seconds",
++            "go back by a minute",
++            "rewind 10 minutes",
++        ],
++    }
++
++    execute(command) {
++        todo!("wire up OS media-control backend for '{}'", command.intent)
+     }
+ }
+diff --git a/tess-core/src/registry/skills/mod.rs b/tess-core/src/registry/skills/mod.rs
+index bc776a2..9732a6c 100644
+--- a/tess-core/src/registry/skills/mod.rs
++++ b/tess-core/src/registry/skills/mod.rs
+@@ -1,2 +1,16 @@
++use std::sync::Arc;
++
++use crate::registry::Skill;
++
+ pub mod media;
+ pub mod system;
++
++/// The single manifest of every skill compiled into this binary.
++///
++/// This is the one place that needs to change when adding a new skill.
++/// [`SkillRegistry::bootstrap`](crate::registry::SkillRegistry::bootstrap) and,
++/// transitively, `main.rs` and the parser catalog all discover skills through this
++/// list, so none of them need to change when a skill is added or removed here.
++pub fn all() -> Vec<Arc<dyn Skill>> {
++    vec![Arc::new(media::MediaSkill), Arc::new(system::SystemSkill)]
++}
+diff --git a/tess-core/src/registry/skills/system.rs b/tess-core/src/registry/skills/system.rs
+index 13d6fce..2cdeba4 100644
+--- a/tess-core/src/registry/skills/system.rs
++++ b/tess-core/src/registry/skills/system.rs
+@@ -1,47 +1,36 @@
+-use crate::registry::{BoxFuture, Skill};
++use crate::registry::{ArgKind, ArgSpec};
+ 
+-pub struct SystemSkill;
++crate::skill! {
++    struct SystemSkill;
++    name = "system";
+ 
+-impl Skill for SystemSkill {
+-    fn name(&self) -> &'static str {
+-        "system"
++    intent "system.volume_up" {
++        desc: "Increase the system output volume",
++        args: [ArgSpec::optional("volume", ArgKind::Integer)],
++        exemplars: [
++            "turn up volume",
++            "increase sound",
++            "make it louder",
++            "volume up",
++            "raise the volume",
++            "boost the volume",
++        ],
+     }
+ 
+-    fn intents(&self) -> Vec<crate::registry::IntentDescriptor> {
+-        vec![
+-            crate::registry::IntentDescriptor::new(
+-                "system.volume_up",
+-                "Increase the system output volume",
+-                &["optional: volume"],
+-                &[
+-                    "turn up volume",
+-                    "increase sound",
+-                    "make it louder",
+-                    "volume up",
+-                    "raise the volume",
+-                    "boost the volume",
+-                ],
+-            ),
+-            crate::registry::IntentDescriptor::new(
+-                "system.volume_down",
+-                "Decrease the system output volume",
+-                &["optional: volume"],
+-                &[
+-                    "lower volume",
+-                    "turn down volume",
+-                    "decrease sound",
+-                    "make it quieter",
+-                    "volume down",
+-                    "reduce the volume",
+-                ],
+-            ),
+-        ]
++    intent "system.volume_down" {
++        desc: "Decrease the system output volume",
++        args: [ArgSpec::optional("volume", ArgKind::Integer)],
++        exemplars: [
++            "lower volume",
++            "turn down volume",
++            "decrease sound",
++            "make it quieter",
++            "volume down",
++            "reduce the volume",
++        ],
+     }
+ 
+-    fn execute<'a>(
+-        &'a self,
+-        _command: &'a crate::events::Event,
+-    ) -> BoxFuture<'a, Result<crate::registry::ExecutionResult, anyhow::Error>> {
+-        todo!()
++    execute(command) {
++        todo!("wire up OS volume backend for '{}'", command.intent)
+     }
+ }
