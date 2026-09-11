@@ -2,6 +2,7 @@ use tess_core::{
     event_bus::EventBus,
     ipc::{self, PIPE_NAME},
     logging::init_tracing,
+    parser::Parser,
 };
 use tokio::net::windows::named_pipe::ServerOptions;
 
@@ -9,6 +10,9 @@ use tokio::net::windows::named_pipe::ServerOptions;
 async fn main() {
     let _guard = init_tracing();
     let bus = EventBus::new();
+    let parser = Parser::new();
+
+    parser.init().expect("fatal: failed to initialize parser");
 
     let mut server =
         ipc::init_ipc_socket().expect("fatal: cannot bind IPC pipe. Stopping core process.");
@@ -39,6 +43,7 @@ async fn main() {
 
             tracing::info!("connected to pipe");
 
+            let bus = bus.clone();
             tokio::spawn(async move { ipc::handle_connection(connected, bus).await });
         }
     });

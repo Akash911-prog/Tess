@@ -32,3 +32,9 @@ pub enum _DispatchError {
         source: anyhow::Error,
     },
 }
+
+#[derive(Error, Debug)]
+pub enum ParserError {
+    #[error("failed to parse command: {0}")]
+    Parse(#[from] anyhow::Error),
+}

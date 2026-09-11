@@ -7,7 +7,7 @@ use serde::Deserialize;
 pub enum EventType {
     SttTranscript,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct TranscriptEvent {
     pub schema_version: u8,
     pub event_type: EventType,
@@ -19,4 +19,11 @@ impl Display for TranscriptEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.text)
     }
+}
+
+#[derive(Debug)]
+pub struct Event {
+    trace_id: String,
+    intent: String,
+    args: Vec<String>,
 }

@@ -3,5 +3,5 @@ pub mod event_bus;
 mod events;
 pub mod ipc;
 pub mod logging;
-mod parser;
+pub mod parser;
 mod registry;
