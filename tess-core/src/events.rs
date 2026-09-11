@@ -23,7 +23,8 @@ impl Display for TranscriptEvent {
 
 #[derive(Debug)]
 pub struct Event {
-    trace_id: String,
-    intent: String,
-    args: Vec<String>,
+    pub trace_id: String,
+    pub intent: String,
+    pub args: Vec<String>,
+    pub confidence: f32,
 }

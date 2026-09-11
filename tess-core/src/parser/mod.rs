@@ -1,7 +1,8 @@
+use std::sync::Arc;
+
 use crate::{
     errors::ParserError,
-    event_bus::EventBus,
-    events::Event,
+    events::{Event, TranscriptEvent},
     parser::{
         constants::{PARSER_TYPE, ParserType},
         semantic_parser::SemanticParser,
@@ -12,8 +13,8 @@ mod constants;
 pub mod normalizer;
 pub mod semantic_parser;
 
-pub trait EventParser {
-    fn parse(&self, bus: EventBus) -> Result<Vec<Event>, ParserError>;
+pub trait EventParser: Send + Sync {
+    fn parse(&self, event: Arc<TranscriptEvent>) -> Result<Vec<Event>, ParserError>;
     fn init(&self) -> Result<(), ParserError>;
 }
 
@@ -31,8 +32,8 @@ impl Parser {
     }
 
     // 3. Delegate the trait methods through the cover struct
-    pub fn parse(&self, bus: EventBus) -> Result<Vec<Event>, ParserError> {
-        self.inner.parse(bus)
+    pub fn parse(&self, event: Arc<TranscriptEvent>) -> Result<Vec<Event>, ParserError> {
+        self.inner.parse(event)
     }
 
     pub fn init(&self) -> Result<(), ParserError> {

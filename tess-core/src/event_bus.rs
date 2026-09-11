@@ -19,4 +19,8 @@ impl EventBus {
         tracing::debug!(event = ?event, "publishing transcript event");
         let _ = self.sender.send(Arc::new(event));
     }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<Arc<TranscriptEvent>> {
+        self.sender.subscribe()
+    }
 }

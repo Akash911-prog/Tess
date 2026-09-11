@@ -1,9 +1,15 @@
-use crate::{errors::ParserError, event_bus::EventBus, events::Event, parser::EventParser};
+use std::sync::Arc;
+
+use crate::{
+    errors::ParserError,
+    events::{Event, TranscriptEvent},
+    parser::EventParser,
+};
 
 pub struct SemanticParser {}
 
 impl EventParser for SemanticParser {
-    fn parse(&self, bus: EventBus) -> Result<Vec<Event>, ParserError> {
+    fn parse(&self, event: Arc<TranscriptEvent>) -> Result<Vec<Event>, ParserError> {
         todo!()
     }
 
