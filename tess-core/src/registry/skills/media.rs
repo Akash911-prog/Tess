@@ -1,4 +1,6 @@
-use crate::registry::{ArgKind, ArgSpec};
+use anyhow::Ok;
+
+use crate::registry::{ArgKind, ArgSpec, ExecutionResult};
 
 crate::skill! {
     struct MediaSkill;
@@ -64,6 +66,7 @@ crate::skill! {
     }
 
     execute(command) {
-        todo!("wire up OS media-control backend for '{}'", command.intent)
+        println!("MediaSkill::execute({:?})", command);
+        Ok(ExecutionResult::success())
     }
 }

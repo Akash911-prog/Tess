@@ -13,16 +13,19 @@ fn test_model_intent_matching_in_isolation() {
         IntentDescriptor::new(
             "media.pause",
             "Pause playback",
+            &[],
             &["pause music", "stop playback", "pause song"],
         ),
         IntentDescriptor::new(
             "media.play",
             "Resume playback",
+            &[],
             &["play music", "resume playback", "start the song"],
         ),
         IntentDescriptor::new(
             "system.volume_up",
             "Volume increase",
+            &[],
             &["turn up volume", "increase sound", "make it louder"],
         ),
     ];
