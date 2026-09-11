@@ -52,6 +52,11 @@ async fn main() {
                                         %feedback,
                                         "skill execution succeeded"
                                     );
+                                } else {
+                                    tracing::info!(
+                                        trace_id = %command.trace_id,
+                                        "skill execution succeeded"
+                                    );
                                 }
                             }
                             Err(e) => {

@@ -11,21 +11,18 @@ pub fn init_tracing() -> WorkerGuard {
 
     fs::create_dir_all(&log_dir).expect("Could not create log directory");
 
-    let appender = tracing_appender::rolling::daily(log_dir, "tess.log");
+    let appender = tracing_appender::rolling::daily(&log_dir, "tess.log");
+
     let (writer, guard) = tracing_appender::non_blocking(appender);
 
-    let stdout_layer = if cfg!(debug_assertions) {
-        Some(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
-    } else {
-        None
-    };
+    let subscriber = tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_subscriber::fmt::layer().json().with_writer(writer));
 
-    let file_layer = tracing_subscriber::fmt::layer().json().with_writer(writer);
+    #[cfg(debug_assertions)]
+    let subscriber = subscriber.with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout));
 
-    tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
-        .with(stdout_layer)
-        .with(file_layer)
-        .init();
+    subscriber.init();
+
     guard
 }
