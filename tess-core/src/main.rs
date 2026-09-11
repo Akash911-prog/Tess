@@ -1,15 +1,14 @@
 use tess_core::{
+    event_bus::EventBus,
     ipc::{self, PIPE_NAME},
     logging::init_tracing,
 };
-use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    net::windows::named_pipe::ServerOptions,
-};
+use tokio::net::windows::named_pipe::ServerOptions;
 
 #[tokio::main]
 async fn main() {
     let _guard = init_tracing();
+    let bus = EventBus::new();
 
     let mut server =
         ipc::init_ipc_socket().expect("fatal: cannot bind IPC pipe. Stopping core process.");
@@ -40,13 +39,7 @@ async fn main() {
 
             tracing::info!("connected to pipe");
 
-            let mut lines = BufReader::new(connected).lines();
-
-            while let Some(line) = lines.next_line().await.unwrap() {
-                tracing::debug!(raw_line = %line, "received line from pipe");
-
-                println!("{}", line);
-            }
+            tokio::spawn(async move { ipc::handle_connection(connected, bus).await });
         }
     });
 

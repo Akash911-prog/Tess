@@ -20,7 +20,7 @@ pub enum IpcError {
 }
 
 #[derive(Error, Debug)]
-pub enum DispatchError {
+pub enum _DispatchError {
     #[error("no skill registered for intent '{0}'")]
     UnknownIntent(String),
 

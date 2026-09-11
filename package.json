@@ -1,9 +1,11 @@
 {
   "name": "tess",
   "scripts": {
-    "dev:core": "cargo run --release --manifest-path tess-core/Cargo.toml",
-    "dev:stt": "uv run tess-stt/main.py",
-    "dev": "concurrently -n core,stt -c blue,green \"bun run dev:core\" \"bun run dev:stt\""
+    "dev:core": "cargo run --manifest-path tess-core/Cargo.toml",
+    "dev:stt": "cd tess-stt && uv run main.py",
+    "dev:test": "cd tess-stt && uv run test.py",
+    "dev": "concurrently -n core,stt -c blue,green \"bun run dev:core\" \"bun run dev:stt\"",
+    "test": "concurrently -n core,stt -c blue,green \"bun run dev:core\" \"bun run dev:test\""
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

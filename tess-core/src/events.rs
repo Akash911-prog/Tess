@@ -2,11 +2,17 @@ use std::fmt::Display;
 
 use serde::Deserialize;
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum EventType {
+    SttTranscript,
+}
 #[derive(Debug, Deserialize)]
 pub struct TranscriptEvent {
+    pub schema_version: u8,
+    pub event_type: EventType,
     pub trace_id: String,
     pub text: String,
-    pub confidence: f32,
 }
 
 impl Display for TranscriptEvent {

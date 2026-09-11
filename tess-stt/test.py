@@ -14,6 +14,7 @@ Usage:
     Ctrl+C to quit.
 """
 
+from enum import StrEnum, auto
 import json
 import time
 import uuid
@@ -46,10 +47,14 @@ def connect_pipe(retries: int = 20, delay: float = 0.2):
     )
 
 
+class EventType(StrEnum):
+    STT_TRANSCRIPT = auto()
+
+
 def send_text(handle, text: str) -> None:
     event = {
         "schema_version": 1,
-        "type": "stt_transcript",
+        "event_type": EventType.STT_TRANSCRIPT,
         "trace_id": str(uuid.uuid4()),
         "text": text,
     }
