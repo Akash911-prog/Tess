@@ -22,6 +22,9 @@ pub struct IntentDescriptor {
     /// Human-readable explanation of what this intent accomplishes.
     pub description: &'static str,
 
+    // parameters / args needed
+    pub args: &'static [&'static str],
+
     /// Canonical anchor phrases and user utterances used by the semantic parser
     /// to generate vector embeddings for cosine similarity matching.
     pub exemplars: &'static [&'static str],
@@ -32,11 +35,13 @@ impl IntentDescriptor {
     pub const fn new(
         id: &'static str,
         description: &'static str,
+        args: &'static [&'static str],
         exemplars: &'static [&'static str],
     ) -> Self {
         Self {
             id,
             description,
+            args,
             exemplars,
         }
     }

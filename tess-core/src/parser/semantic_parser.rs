@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use fastembed::similarity::cosine_similarity;
 
+use crate::parser::normalizer::normalize_text;
 use crate::{
     errors::ParserError,
     events::{Event, TranscriptEvent},
@@ -91,7 +92,6 @@ impl SemanticParser {
             .clone()
     }
 
-
     /// Swaps the current embedding model with a new `ModelSource`.
     ///
     /// Automatically re-indexes the registered intent catalog with the new model.
@@ -162,9 +162,10 @@ impl SemanticParser {
             "batch computing embeddings for intent catalog"
         );
 
-        let batch_size = *self.batch_size.read().map_err(|_| {
-            ParserError::Parse(anyhow::anyhow!("poisoned lock on batch size"))
-        })?;
+        let batch_size = *self
+            .batch_size
+            .read()
+            .map_err(|_| ParserError::Parse(anyhow::anyhow!("poisoned lock on batch size")))?;
         let vectors = engine.embed(&all_texts, batch_size)?;
 
         let mut new_embeddings = Vec::with_capacity(vectors.len());
@@ -234,10 +235,7 @@ impl EventParser for SemanticParser {
     }
 
     fn parse(&self, event: Arc<TranscriptEvent>) -> Result<Vec<Event>, ParserError> {
-        let text = event.text.trim();
-        if text.is_empty() {
-            return Ok(vec![]);
-        }
+        let text = normalize_text(&event.text);
 
         let embeddings_guard = self.intent_embeddings.read().map_err(|_| {
             ParserError::Parse(anyhow::anyhow!("poisoned lock on intent embeddings"))
@@ -254,7 +252,7 @@ impl EventParser for SemanticParser {
             .map_err(|_| ParserError::Parse(anyhow::anyhow!("poisoned lock on embedding engine")))?
             .clone();
 
-        let query_embeddings = engine.embed(&[text], Some(1))?;
+        let query_embeddings = engine.embed(&[&text], Some(1))?;
         let query_vec = match query_embeddings.first() {
             Some(v) => v,
             None => return Ok(vec![]),
@@ -336,7 +334,11 @@ mod tests {
     struct MockEngine;
 
     impl EmbeddingEngine for MockEngine {
-        fn embed(&self, texts: &[&str], _batch_size: Option<usize>) -> Result<Vec<Vec<f32>>, ParserError> {
+        fn embed(
+            &self,
+            texts: &[&str],
+            _batch_size: Option<usize>,
+        ) -> Result<Vec<Vec<f32>>, ParserError> {
             Ok(texts
                 .iter()
                 .map(|t| match *t {
@@ -357,9 +359,10 @@ mod tests {
             IntentDescriptor::new(
                 "media.pause",
                 "Pause playback",
+                &[],
                 &["pause music", "stop playback"],
             ),
-            IntentDescriptor::new("media.play", "Resume playback", &["play music"]),
+            IntentDescriptor::new("media.play", "Resume playback", &[], &["play music"]),
         ];
 
         parser.load_catalog(&catalog).unwrap();
@@ -383,6 +386,7 @@ mod tests {
         let catalog = vec![IntentDescriptor::new(
             "media.pause",
             "Pause playback",
+            &[],
             &["pause music"],
         )];
         parser.load_catalog(&catalog).unwrap();

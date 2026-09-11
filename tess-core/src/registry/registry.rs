@@ -127,11 +127,13 @@ mod tests {
                 IntentDescriptor::new(
                     "media.pause",
                     "Pause active playback",
+                    &[],
                     &["pause music", "stop song"],
                 ),
                 IntentDescriptor::new(
                     "media.play",
                     "Resume playback",
+                    &[],
                     &["play music", "resume song"],
                 ),
             ]
@@ -183,7 +185,12 @@ mod tests {
                 "conflicting"
             }
             fn intents(&self) -> Vec<IntentDescriptor> {
-                vec![IntentDescriptor::new("media.pause", "conflict", &["pause"])]
+                vec![IntentDescriptor::new(
+                    "media.pause",
+                    "conflict",
+                    &[],
+                    &["pause"],
+                )]
             }
             fn execute<'a>(
                 &'a self,
