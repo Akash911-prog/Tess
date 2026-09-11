@@ -14,3 +14,4 @@ tokio = { version = "1", features = ["full"] }
 thiserror = "1.0"
 anyhow = "1.0"
 fastembed = "6.0.3"
+sysinfo = "0.36"
