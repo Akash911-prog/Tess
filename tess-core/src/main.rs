@@ -37,6 +37,7 @@ async fn main() {
         while let Ok(event) = rx.recv().await {
             tracing::debug!(event_trace_id = ?&event.trace_id, "received transcript event");
 
+            let event_copy = event.clone();
             match parser.parse(event) {
                 Ok(mut commands) => {
                     for command in &mut commands {
@@ -48,7 +49,17 @@ async fn main() {
                             "parsed command"
                         );
 
-                        command.args = extractor.extract(&command.intent, &event.text);
+                        command.args = match extractor.extract(&command.intent, &event_copy.text) {
+                            Ok(args) => args,
+                            Err(e) => {
+                                tracing::error!(
+                                    trace_id = %command.trace_id,
+                                    error = %e,
+                                    "failed to extract arguments"
+                                );
+                                continue;
+                            }
+                        };
 
                         match registry.dispatch(command).await {
                             Ok(result) => {

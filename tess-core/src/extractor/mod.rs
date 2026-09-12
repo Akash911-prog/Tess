@@ -1,5 +1,8 @@
 mod rule_based_extractor;
 
+#[cfg(test)]
+mod extractor_test;
+
 use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use crate::{
