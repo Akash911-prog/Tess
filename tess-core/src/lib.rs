@@ -1,6 +1,7 @@
 pub mod errors;
 pub mod event_bus;
 pub mod events;
+pub mod extractor;
 pub mod ipc;
 pub mod logging;
 pub mod parser;

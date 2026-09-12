@@ -13,7 +13,7 @@ pub fn normalize_text(text: &str) -> String {
         })
         .collect();
 
-    normalized = normalized.split_whitespace().collect::<Vec<_>>().join("");
+    normalized = normalized.split_whitespace().collect::<Vec<_>>().join(" ");
 
     loop {
         let mut changed = false;

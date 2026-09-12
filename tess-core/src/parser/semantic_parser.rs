@@ -288,6 +288,7 @@ impl EventParser for SemanticParser {
                 threshold = %threshold,
                 "semantic match below threshold"
             );
+            tracing::info!(trace_id = %&event.trace_id ,"No commands Found");
             return Ok(vec![]);
         }
 

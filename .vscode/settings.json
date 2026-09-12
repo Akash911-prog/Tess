@@ -11,6 +11,7 @@
         "rvalue",
         "sysinfo",
         "thiserror",
-        "wakeword"
+        "wakeword",
+        "winerror"
     ]
 }
