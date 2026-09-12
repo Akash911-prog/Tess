@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use tess_core::{
     event_bus::EventBus,
+    extractor::{self, Extractor},
     ipc::{self, PIPE_NAME},
     logging::init_tracing,
     parser::Parser,
@@ -18,6 +19,7 @@ async fn main() {
         SkillRegistry::bootstrap()
             .expect("fatal: duplicate intent registered by compiled-in skills"),
     );
+    let global_extractor = Arc::new(Extractor::new(global_registry.clone()));
 
     global_parser
         .load_catalog(global_registry.catalog())
@@ -29,13 +31,15 @@ async fn main() {
     let mut rx = global_bus.subscribe();
     let parser = global_parser.clone();
     let registry = global_registry.clone();
+    let extractor = global_extractor.clone();
+
     tokio::spawn(async move {
         while let Ok(event) = rx.recv().await {
             tracing::debug!(event_trace_id = ?&event.trace_id, "received transcript event");
 
             match parser.parse(event) {
-                Ok(commands) => {
-                    for command in &commands {
+                Ok(mut commands) => {
+                    for command in &mut commands {
                         tracing::info!(
                             trace_id = %command.trace_id,
                             intent = %command.intent,
@@ -43,6 +47,8 @@ async fn main() {
                             confidence = %command.confidence,
                             "parsed command"
                         );
+
+                        command.args = extractor.extract(&command.intent, &event.text);
 
                         match registry.dispatch(command).await {
                             Ok(result) => {

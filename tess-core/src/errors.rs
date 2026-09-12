@@ -44,3 +44,12 @@ pub enum ParserError {
     #[error("failed to parse command: {0}")]
     Parse(#[from] anyhow::Error),
 }
+
+#[derive(Error, Debug)]
+pub enum ExtractorError {
+    #[error("No Intent descriptor found for {0}")]
+    NoIntent(String),
+
+    #[error("failed to extract arguments from text: {0}")]
+    Extract(#[from] anyhow::Error),
+}

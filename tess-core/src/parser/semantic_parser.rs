@@ -321,7 +321,7 @@ impl EventParser for SemanticParser {
         Ok(vec![Event {
             trace_id: event.trace_id.clone(),
             intent: top_intent.to_string(),
-            args: vec![],
+            args: HashMap::new(),
             confidence: top_score,
         }])
     }

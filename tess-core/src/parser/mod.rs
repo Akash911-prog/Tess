@@ -7,7 +7,7 @@ use crate::{
     registry::IntentDescriptor,
 };
 
-mod constants;
+pub mod constants;
 pub mod engine;
 pub mod normalizer;
 pub mod semantic_parser;

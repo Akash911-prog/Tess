@@ -19,6 +19,9 @@ pub struct SkillRegistry {
     /// Fast O(1) lookup table routing an `intent_id` (e.g., "media.pause") to its handling skill.
     intent_index: HashMap<&'static str, Arc<dyn Skill>>,
 
+    /// Fast O(1) lookup table routing an `intent_id` (e.g., "media.pause") to its Descriptor.
+    descriptor_index: HashMap<&'static str, IntentDescriptor>,
+
     /// Complete catalog of all registered intent descriptors with exemplars,
     /// consumed by the semantic parser to build the vector similarity space.
     catalog: Vec<IntentDescriptor>,
@@ -75,6 +78,8 @@ impl SkillRegistry {
         // 2. Commit phase: register the skill and index all its intents
         for descriptor in declared_intents {
             self.intent_index.insert(descriptor.id, Arc::clone(&skill));
+            self.descriptor_index
+                .insert(descriptor.id, descriptor.clone());
             self.catalog.push(descriptor);
         }
 
@@ -97,6 +102,11 @@ impl SkillRegistry {
     /// Retrieves a reference to a registered skill by its domain name.
     pub fn get_skill(&self, domain_name: &str) -> Option<Arc<dyn Skill>> {
         self.skills.get(domain_name).cloned()
+    }
+
+    /// retrieves a reference to a registered intents descriptor by its id.
+    pub fn descriptor_for(&self, intent_id: &str) -> Option<&IntentDescriptor> {
+        self.descriptor_index.get(intent_id)
     }
 
     /// Dispatches a parsed command to its registered skill handler.
@@ -184,7 +194,7 @@ mod tests {
         let cmd = Event {
             trace_id: "test-1".into(),
             intent: "media.pause".into(),
-            args: vec![],
+            args: HashMap::new(),
             confidence: 0.95,
         };
 

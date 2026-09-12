@@ -1,6 +1,8 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use serde::Deserialize;
+
+use crate::registry::ArgValue;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -21,11 +23,11 @@ impl Display for TranscriptEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Event {
     pub trace_id: String,
     pub intent: String,
-    pub args: Vec<String>,
+    pub args: HashMap<&'static str, ArgValue>,
     pub confidence: f32,
 }
 
