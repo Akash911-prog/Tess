@@ -1,3 +1,5 @@
+pub mod bio_tagger;
+
 use std::{
     collections::HashMap,
     sync::{Arc, OnceLock},
@@ -5,7 +7,7 @@ use std::{
 
 use crate::{
     errors::ExtractorError,
-    extractor::ArgExtractor,
+    extractor::{ArgExtractor, rule_based_extractor::bio_tagger::BioTagger},
     registry::{ArgKind, ArgSpec, ArgValue, SkillRegistry},
 };
 
@@ -45,11 +47,13 @@ fn is_indefinite_article(tok: &str) -> bool {
 
 pub struct RuleBasedExtractor {
     registry: Arc<SkillRegistry>,
+    tagger: BioTagger,
 }
 
 impl RuleBasedExtractor {
-    pub fn new(registry: Arc<SkillRegistry>) -> Self {
-        Self { registry }
+    pub async fn new(registry: Arc<SkillRegistry>) -> Self {
+        let tagger = BioTagger::new().await;
+        Self { registry, tagger }
     }
 
     /// First number in `text`, as digits or a known number-word ("a" -> "1").
@@ -102,7 +106,8 @@ impl RuleBasedExtractor {
     }
 
     pub fn extract_text(&self, text: &str) -> Option<String> {
-        Some("".into())
+        let tag = self.tagger.tag(text);
+        Some(tag.join(" ")) //TODO: remove whitespace
     }
 
     pub fn extract_enum(&self, text: &str, allowed: &[&'static str]) -> Option<String> {

@@ -56,7 +56,9 @@ crate::skill! {
 fn extractor() -> RuleBasedExtractor {
     let mut registry = SkillRegistry::new();
     registry.register(TestSkill).unwrap();
-    RuleBasedExtractor::new(Arc::new(registry))
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+
+    runtime.block_on(RuleBasedExtractor::new(Arc::new(registry)))
 }
 
 // ---------------------------------------------------------------- //

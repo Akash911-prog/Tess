@@ -24,8 +24,8 @@ pub struct Extractor {
 }
 
 impl Extractor {
-    pub fn new(registry: Arc<SkillRegistry>) -> Self {
-        let inner = Box::new(RuleBasedExtractor::new(registry));
+    pub async fn new(registry: Arc<SkillRegistry>) -> Self {
+        let inner = Box::new(RuleBasedExtractor::new(registry).await);
         Self { extractor: inner }
     }
 }

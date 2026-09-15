@@ -19,7 +19,7 @@ async fn main() {
         SkillRegistry::bootstrap()
             .expect("fatal: duplicate intent registered by compiled-in skills"),
     );
-    let global_extractor = Arc::new(Extractor::new(global_registry.clone()));
+    let global_extractor = Arc::new(Extractor::new(global_registry.clone()).await);
 
     global_parser
         .load_catalog(global_registry.catalog())
