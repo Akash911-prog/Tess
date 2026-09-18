@@ -253,3 +253,23 @@ mod tests {
         }
     }
 }
+
+#[test]
+fn test_no_duplicate_exemplars_across_intents() {
+    use std::collections::HashMap;
+
+    let registry = SkillRegistry::bootstrap().expect("compiled-in skills must not collide");
+    let mut seen: HashMap<&'static str, &'static str> = HashMap::new();
+
+    for descriptor in registry.catalog() {
+        for &exemplar in descriptor.exemplars {
+            if let Some(previous) = seen.insert(exemplar, descriptor.id) {
+                panic!(
+                    "exemplar {exemplar:?} is declared by both '{previous}' and '{}'; \
+                     identical exemplars make the parser's margin check reject the utterance",
+                    descriptor.id
+                );
+            }
+        }
+    }
+}

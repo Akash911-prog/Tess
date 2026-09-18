@@ -37,7 +37,6 @@ crate::skill! {
             "mute music",
             "silence playback",
             "mute song",
-            "stop the track",
             "mute the music",
             "silence the music",
         ],
@@ -52,7 +51,6 @@ crate::skill! {
             "unmute song",
             "unmute the music",
             "unmute the track",
-            "resume the music",
         ],
     }
 

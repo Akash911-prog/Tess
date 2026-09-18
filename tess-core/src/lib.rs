@@ -1,3 +1,4 @@
+pub mod context_manager;
 pub mod errors;
 pub mod event_bus;
 pub mod events;

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use tess_core::{
+    context_manager::ContextManager,
     event_bus::EventBus,
     extractor::{self, Extractor},
     ipc::{self, PIPE_NAME},
@@ -29,6 +30,8 @@ async fn main() {
             .expect("fatal: duplicate intent registered by compiled-in skills"),
     );
     let global_extractor = Arc::new(Extractor::new(global_registry.clone()).await);
+
+    let _global_context_manager = Arc::new(ContextManager::new());
 
     global_parser
         .load_catalog(global_registry.catalog())

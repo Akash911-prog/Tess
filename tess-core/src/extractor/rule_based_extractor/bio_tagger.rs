@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::{collections::HashMap, fs::File, path::PathBuf};
 
 use fst::Map;
 use memmap::Mmap;
@@ -14,13 +14,12 @@ pub enum Tags {
     O,
 }
 
-impl From<&String> for Tags {
-    fn from(tag: &String) -> Self {
-        match tag.as_str() {
+impl Tags {
+    pub fn from_label(label: &str) -> Self {
+        match label {
             "B-TARGET" => Tags::BTarget,
             "I-TARGET" => Tags::ITarget,
-            "O" => Tags::O,
-            _ => unreachable!(),
+            _ => Tags::O,
         }
     }
 }
@@ -55,8 +54,7 @@ pub struct Vocab {
 }
 
 impl Vocab {
-    async fn load() -> Result<Self, anyhow::Error> {
-        let cwd = std::env::current_dir()?;
+    async fn load(cwd: &PathBuf) -> Result<Self, anyhow::Error> {
         let model_path = cwd.join(r"models\biotagger");
 
         let vocab_path = model_path.join("vocab.json");
@@ -226,7 +224,8 @@ pub struct Crf {
 }
 
 impl Crf {
-    pub async fn load(path: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
+    pub async fn load(cwd: &PathBuf) -> Result<Self, anyhow::Error> {
+        let path = cwd.join(r"models\biotagger\crf_params.json");
         let json = fs::read_to_string(path).await?;
         let params: CrfParams = serde_json::from_str(&json)?;
 
@@ -354,9 +353,9 @@ impl BioTagger {
          * Both are independent, so load concurrently.
          */
         let cwd = std::env::current_dir().expect("failed to get current directory");
-        let crf_path = cwd.join(r"models\biotagger\crf_params.json");
+
         let (vocab, runnable, crf) =
-            tokio::join!(Vocab::load(), Self::load_model(), Crf::load(crf_path));
+            tokio::join!(Vocab::load(&cwd), Self::load_model(&cwd), Crf::load(&cwd));
 
         let token_re =
             Regex::new(r"[A-Za-z']+|\d+|[^\sA-Za-z0-9]").expect("invalid tokenizer regex");
@@ -369,8 +368,7 @@ impl BioTagger {
         }
     }
 
-    async fn load_model() -> Result<Runnable, anyhow::Error> {
-        let cwd = std::env::current_dir()?;
+    async fn load_model(cwd: &PathBuf) -> Result<Runnable, anyhow::Error> {
         let model_path = cwd.join(r"models\biotagger");
 
         let model = tract::onnx()?
@@ -612,7 +610,7 @@ impl BioTagger {
         let mut outputs: Vec<(String, Tags)> = Vec::new();
 
         for (token, tag) in result.iter() {
-            let tag: Tags = tag.into();
+            let tag: Tags = Tags::from_label(tag);
             outputs.push((token.to_owned(), tag));
         }
 
