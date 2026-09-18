@@ -1,4 +1,4 @@
-use crate::registry::{ArgKind, ArgSpec};
+use crate::registry::{ArgKind, ArgSpec, ExecutionResult};
 
 crate::skill! {
     struct SystemSkill;
@@ -30,7 +30,47 @@ crate::skill! {
         ],
     }
 
+    intent "system.mute" {
+        desc: "Mute the system output",
+        args: [ArgSpec::optional("app", ArgKind::Text)],
+        exemplars: [
+            "mute music",
+            "silence playback",
+            "mute song",
+            "stop the track",
+            "mute the music",
+            "silence the music",
+        ],
+    }
+
+    intent "system.unmute" {
+        desc: "Unmute the system output",
+        args: [ArgSpec::optional("app", ArgKind::Text)],
+        exemplars: [
+            "unmute music",
+            "unmute playback",
+            "unmute song",
+            "unmute the music",
+            "unmute the track",
+            "resume the music",
+        ],
+    }
+
+    intent "system.toggle_wifi" {
+        desc: "Toggle WiFi",
+        args: [ArgSpec::required("action", ArgKind::Enum(&["on", "off"])), ArgSpec::optional("target", ArgKind::Text)],
+        exemplars: [
+            "turn on wifi",
+            "turn off wifi",
+            "enable wifi",
+            "disable wifi",
+            "connect to wifi",
+            "disconnect from wifi",
+        ],
+    }
+
     execute(command) {
-        todo!("wire up OS volume backend for '{}'", command.intent)
+        println!("SystemSkill::execute({:?})", command);
+        Ok(ExecutionResult::success())
     }
 }

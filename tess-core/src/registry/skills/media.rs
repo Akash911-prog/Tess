@@ -8,14 +8,14 @@ crate::skill! {
 
     intent "media.pause" {
         desc: "Pause playback",
-        args: [],
-        exemplars: ["pause music", "stop playback", "pause song"],
+        args: [ArgSpec::optional("app", ArgKind::Text)],
+        exemplars: ["pause music", "stop playback", "pause song", "stop the track"],
     }
 
     intent "media.play" {
         desc: "Resume playback",
-        args: [],
-        exemplars: ["play music", "resume music", "start the song"],
+        args: [ArgSpec::optional("app", ArgKind::Text)],
+        exemplars: ["play music", "resume music", "start the song", "unpause", "continue"],
     }
 
     intent "media.next" {

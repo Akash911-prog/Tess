@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+dhat = { version = "0.3" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
@@ -18,3 +19,7 @@ sysinfo = "0.36"
 regex = "1.10"
 fst = "0.4.7"
 memmap = "0.7.0"
+tract = "0.23.7"
+
+[features]
+dhat-heap = []

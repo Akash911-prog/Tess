@@ -2,6 +2,7 @@
     "python-envs.defaultEnvManager": "ms-python.python:system",
     "cSpell.words": [
         "BAAI",
+        "backpointers",
         "bekko",
         "biotagger",
         "fastembed",
@@ -13,6 +14,7 @@
         "rvalue",
         "sysinfo",
         "thiserror",
+        "unmute",
         "wakeword",
         "winerror"
     ]

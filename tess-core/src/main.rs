@@ -10,8 +10,17 @@ use tess_core::{
 };
 use tokio::net::windows::named_pipe::ServerOptions;
 
+use dhat::Alloc;
+
+// #[cfg(feature = "dhat-heap")]
+// #[global_allocator]
+// static ALLOC: dhat::Alloc = dhat::Alloc;
+
 #[tokio::main]
 async fn main() {
+    // #[cfg(feature = "dhat-heap")]
+    // let _profiler = dhat::Profiler::new_heap();
+
     let _guard = init_tracing();
     let global_bus = EventBus::default();
     let global_parser = Arc::new(Parser::default());
@@ -127,5 +136,12 @@ async fn main() {
         }
     });
 
-    let _ = handle.await;
+    tokio::select! {
+        _ = handle => {
+            tracing::warn!("IPC loop exited unexpectedly.");
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Ctrl+C received. Shutting down and saving DHAT profile data...");
+        }
+    }
 }

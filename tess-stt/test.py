@@ -25,7 +25,7 @@ import win32file
 PIPE_NAME = r"\\.\pipe\tess"
 
 
-def connect_pipe(retries: int = 20, delay: float = 0.2):
+def connect_pipe(retries: int = 20, delay: float = 0.8):
     for attempt in range(retries):
         try:
             return win32file.CreateFile(

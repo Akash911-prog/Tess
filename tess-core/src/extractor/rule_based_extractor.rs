@@ -7,7 +7,10 @@ use std::{
 
 use crate::{
     errors::ExtractorError,
-    extractor::{ArgExtractor, rule_based_extractor::bio_tagger::BioTagger},
+    extractor::{
+        ArgExtractor,
+        rule_based_extractor::bio_tagger::{BioTagger, Tags},
+    },
     registry::{ArgKind, ArgSpec, ArgValue, SkillRegistry},
 };
 
@@ -106,8 +109,31 @@ impl RuleBasedExtractor {
     }
 
     pub fn extract_text(&self, text: &str) -> Option<String> {
-        let tag = self.tagger.tag(text);
-        Some(tag.join(" ")) //TODO: remove whitespace
+        let tag = match self.tagger.predict(text) {
+            Ok(tag) => tag,
+            Err(e) => {
+                tracing::error!(error = %e, "failed to tag text");
+                return None;
+            }
+        };
+
+        tracing::info!("extracted tags: {:?}", tag);
+        let mut targets = Vec::new();
+
+        for (token, tag) in tag {
+            match tag {
+                Tags::BTarget | Tags::ITarget => {
+                    targets.push(token);
+                }
+                _ => {}
+            }
+        }
+
+        if targets.is_empty() {
+            return None;
+        }
+
+        Some(targets.join(" "))
     }
 
     pub fn extract_enum(&self, text: &str, allowed: &[&'static str]) -> Option<String> {
