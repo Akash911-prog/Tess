@@ -8,7 +8,7 @@ use sysinfo::{Pid, ProcessesToUpdate, System};
 use tess_core::{
     events::{EventType, TranscriptEvent},
     parser::{EventParser, engine::ModelSource, semantic_parser::SemanticParser},
-    registry::IntentDescriptor,
+    registry::{IntentDescriptor, skill::RiskLevel},
 };
 
 /// Returns the current process's resident memory in MB.
@@ -38,6 +38,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "hold the music",
                 "pause the audio",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "media.play",
@@ -51,6 +52,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "resume playback",
                 "play the track",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "media.next",
@@ -63,6 +65,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "skip to next song",
                 "next track please",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "system.volume_up",
@@ -76,6 +79,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "raise the volume",
                 "boost the volume",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "system.volume_down",
@@ -89,6 +93,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "volume down",
                 "reduce the volume",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "app.open",
@@ -101,6 +106,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "open my browser",
                 "launch chrome",
             ],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "timer.set",
@@ -113,6 +119,7 @@ fn build_sample_catalog() -> Vec<IntentDescriptor> {
                 "create a timer",
                 "start the timer",
             ],
+            RiskLevel::Low,
         ),
     ]
 }

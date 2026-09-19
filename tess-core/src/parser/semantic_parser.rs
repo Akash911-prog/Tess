@@ -11,7 +11,7 @@ use crate::{
         EventParser,
         engine::{EmbeddingEngine, FastEmbedEngine, ModelSource},
     },
-    registry::IntentDescriptor,
+    registry::{IntentDescriptor, skill::RiskLevel},
 };
 
 /// Default cosine similarity threshold required for an intent match.
@@ -362,8 +362,15 @@ mod tests {
                 "Pause playback",
                 &[],
                 &["pause music", "stop playback"],
+                RiskLevel::Low,
             ),
-            IntentDescriptor::new("media.play", "Resume playback", &[], &["play music"]),
+            IntentDescriptor::new(
+                "media.play",
+                "Resume playback",
+                &[],
+                &["play music"],
+                RiskLevel::Low,
+            ),
         ];
 
         parser.load_catalog(&catalog).unwrap();
@@ -389,6 +396,7 @@ mod tests {
             "Pause playback",
             &[],
             &["pause music"],
+            RiskLevel::Low,
         )];
         parser.load_catalog(&catalog).unwrap();
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult};
+use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
 use std::time::Duration;
 
 // A small in-test skill exposing a handful of intents that exercise every
@@ -13,30 +13,35 @@ crate::skill! {
         desc: "takes no arguments",
         args: [],
         exemplars: ["do nothing"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "test.required_int" {
         desc: "requires an integer level",
         args: [ArgSpec::required("level", ArgKind::Integer)],
         exemplars: ["set level"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "test.optional_duration" {
         desc: "accepts an optional duration",
         args: [ArgSpec::optional("duration", ArgKind::Duration)],
         exemplars: ["skip"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "test.enum_toggle" {
         desc: "accepts an optional on/off toggle",
         args: [ArgSpec::optional("mode", ArgKind::Enum(&["on", "off"]))],
         exemplars: ["toggle"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "test.required_text" {
         desc: "requires free-form text",
         args: [ArgSpec::required("query", ArgKind::Text)],
         exemplars: ["search"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "test.mixed" {
@@ -46,6 +51,7 @@ crate::skill! {
             ArgSpec::optional("mode", ArgKind::Enum(&["on", "off"])),
         ],
         exemplars: ["mixed"],
+        risk_level: RiskLevel::Low,
     }
 
     execute(_command) {

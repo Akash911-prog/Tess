@@ -1,6 +1,6 @@
 use anyhow::Ok;
 
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult};
+use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
 
 crate::skill! {
     struct MediaSkill;
@@ -10,12 +10,14 @@ crate::skill! {
         desc: "Pause playback",
         args: [ArgSpec::optional("app", ArgKind::Text)],
         exemplars: ["pause music", "stop playback", "pause song", "stop the track"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "media.play" {
         desc: "Resume playback",
         args: [ArgSpec::optional("app", ArgKind::Text)],
         exemplars: ["play music", "resume music", "start the song", "unpause", "continue"],
+        risk_level: RiskLevel::Low,
     }
 
     intent "media.next" {
@@ -28,6 +30,7 @@ crate::skill! {
             "skip to next song",
             "next track please",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "media.previous" {
@@ -39,6 +42,7 @@ crate::skill! {
             "play previous track",
             "previous track please",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "media.skip" {
@@ -51,6 +55,7 @@ crate::skill! {
             "go ahead by a minute",
             "skip 10 minutes",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "media.back" {
@@ -63,6 +68,7 @@ crate::skill! {
             "go back by a minute",
             "rewind 10 minutes",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     execute(command) {

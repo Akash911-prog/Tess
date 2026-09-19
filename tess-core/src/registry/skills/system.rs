@@ -1,4 +1,4 @@
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult};
+use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
 
 crate::skill! {
     struct SystemSkill;
@@ -15,6 +15,7 @@ crate::skill! {
             "raise the volume",
             "boost the volume",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "system.volume_down" {
@@ -28,6 +29,7 @@ crate::skill! {
             "volume down",
             "reduce the volume",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "system.mute" {
@@ -40,6 +42,7 @@ crate::skill! {
             "mute the music",
             "silence the music",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "system.unmute" {
@@ -52,6 +55,7 @@ crate::skill! {
             "unmute the music",
             "unmute the track",
         ],
+        risk_level: RiskLevel::Low,
     }
 
     intent "system.toggle_wifi" {
@@ -65,6 +69,7 @@ crate::skill! {
             "connect to wifi",
             "disconnect from wifi",
         ],
+        risk_level: RiskLevel::Medium,
     }
 
     execute(command) {

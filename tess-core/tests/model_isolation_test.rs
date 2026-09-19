@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tess_core::{
     events::{EventType, TranscriptEvent},
     parser::{EventParser, semantic_parser::SemanticParser},
-    registry::IntentDescriptor,
+    registry::{IntentDescriptor, skill::RiskLevel},
 };
 
 #[test]
@@ -15,18 +15,21 @@ fn test_model_intent_matching_in_isolation() {
             "Pause playback",
             &[],
             &["pause music", "stop playback", "pause song"],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "media.play",
             "Resume playback",
             &[],
             &["play music", "resume playback", "start the song"],
+            RiskLevel::Low,
         ),
         IntentDescriptor::new(
             "system.volume_up",
             "Volume increase",
             &[],
             &["turn up volume", "increase sound", "make it louder"],
+            RiskLevel::Low,
         ),
     ];
 

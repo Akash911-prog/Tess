@@ -10,6 +10,15 @@ use crate::registry::args::ArgSpec;
 /// extensibility and complete dynamic dispatch (`dyn Skill`) safety.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// A skill's risk level, used to prioritize intents in the semantic parser.
+/// Higher risk levels are more likely to be matched by the parser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+}
+
 /// Metadata and training exemplar phrases defining a single intent.
 ///
 /// Under the Open-Closed Principle, skills define their own intent descriptors.
@@ -31,6 +40,8 @@ pub struct IntentDescriptor {
     /// Canonical anchor phrases and user utterances used by the semantic parser
     /// to generate vector embeddings for cosine similarity matching.
     pub exemplars: &'static [&'static str],
+
+    pub risk_level: RiskLevel,
 }
 
 impl IntentDescriptor {
@@ -40,12 +51,14 @@ impl IntentDescriptor {
         description: &'static str,
         args: &'static [ArgSpec],
         exemplars: &'static [&'static str],
+        risk_level: RiskLevel,
     ) -> Self {
         Self {
             id,
             description,
             args,
             exemplars,
+            risk_level,
         }
     }
 }

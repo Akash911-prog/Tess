@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{
     errors::DispatchError,
     events::Event,
-    registry::skill::{ExecutionResult, IntentDescriptor, Skill},
+    registry::skill::{ExecutionResult, IntentDescriptor, RiskLevel, Skill},
 };
 
 /// Central registry managing all registered capabilities and intent routing.
@@ -157,12 +157,14 @@ mod tests {
                     "Pause active playback",
                     &[],
                     &["pause music", "stop song"],
+                    RiskLevel::Low,
                 ),
                 IntentDescriptor::new(
                     "media.play",
                     "Resume playback",
                     &[],
                     &["play music", "resume song"],
+                    RiskLevel::Low,
                 ),
             ]
         }
@@ -230,6 +232,7 @@ mod tests {
                     "conflict",
                     &[],
                     &["pause"],
+                    RiskLevel::Low,
                 )]
             }
             fn execute<'a>(

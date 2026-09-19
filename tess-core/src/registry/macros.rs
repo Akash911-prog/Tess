@@ -21,6 +21,7 @@ macro_rules! skill {
                 desc: $desc:literal,
                 args: [ $( $arg:expr ),* $(,)? ],
                 exemplars: [ $( $exemplar:literal ),+ $(,)? ],
+                risk_level: $risk_level:expr,
             }
         )+
         execute($cmd:ident) $body:block
@@ -51,6 +52,7 @@ macro_rules! skill {
                                 ARGS
                             },
                             &[ $( $exemplar ),+ ],
+                            $risk_level,
                         ),
                     )+
                 ]
