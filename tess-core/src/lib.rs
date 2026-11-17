@@ -7,3 +7,4 @@ pub mod ipc;
 pub mod logging;
 pub mod parser;
 pub mod registry;
+pub mod policy_gate;

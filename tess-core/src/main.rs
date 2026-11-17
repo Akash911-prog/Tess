@@ -3,15 +3,14 @@ use std::sync::Arc;
 use tess_core::{
     context_manager::ContextManager,
     event_bus::EventBus,
-    extractor::{self, Extractor},
+    extractor::Extractor,
     ipc::{self, PIPE_NAME},
     logging::init_tracing,
     parser::Parser,
+    policy_gate::{PolicyCheckResult, PolicyGate},
     registry::SkillRegistry,
 };
 use tokio::net::windows::named_pipe::ServerOptions;
-
-use dhat::Alloc;
 
 // #[cfg(feature = "dhat-heap")]
 // #[global_allocator]
@@ -31,7 +30,8 @@ async fn main() {
     );
     let global_extractor = Arc::new(Extractor::new(global_registry.clone()).await);
 
-    let _global_context_manager = Arc::new(ContextManager::new());
+    let global_context_manager = Arc::new(ContextManager::new());
+    let global_policy_gate = Arc::new(PolicyGate::new());
 
     global_parser
         .load_catalog(global_registry.catalog())
@@ -44,6 +44,8 @@ async fn main() {
     let parser = global_parser.clone();
     let registry = global_registry.clone();
     let extractor = global_extractor.clone();
+    let context_manager = global_context_manager.clone();
+    let policy_gate = global_policy_gate.clone();
 
     tokio::spawn(async move {
         while let Ok(event) = rx.recv().await {
@@ -73,28 +75,26 @@ async fn main() {
                             }
                         };
 
-                        match registry.dispatch(command).await {
-                            Ok(result) => {
-                                if let Some(feedback) = result.feedback {
-                                    tracing::info!(
-                                        trace_id = %command.trace_id,
-                                        %feedback,
-                                        "skill execution succeeded"
-                                    );
-                                } else {
-                                    tracing::info!(
-                                        trace_id = %command.trace_id,
-                                        "skill execution succeeded"
-                                    );
-                                }
-                            }
+                        let skill = match registry.dispatch(command).await {
+                            Ok(skill) => skill,
                             Err(e) => {
                                 tracing::error!(
                                     trace_id = %command.trace_id,
                                     error = %e,
-                                    "skill dispatch failed"
+                                    "failed to dispatch command"
                                 );
+                                continue;
                             }
+                        };
+
+                        match policy_gate
+                            .security_check(skill, context_manager.clone())
+                            .await
+                        {
+                            PolicyCheckResult::Allow { silent } => {}
+                            PolicyCheckResult::Authorize { silent, prompt } => {}
+                            PolicyCheckResult::Confirmation { silent, prompt } => {}
+                            PolicyCheckResult::Deny => {}
                         }
                     }
                 }

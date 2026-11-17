@@ -114,7 +114,7 @@ impl SkillRegistry {
     /// # Errors
     /// - `DispatchError::UnknownIntent`: If no registered skill handles `command.intent`.
     /// - `DispatchError::SkillExecution`: If the skill fails during execution.
-    pub async fn dispatch(&self, command: &Event) -> Result<ExecutionResult, DispatchError> {
+    pub async fn dispatch(&self, command: &Event) -> Result<&Arc<dyn Skill>, DispatchError> {
         let skill = self
             .intent_index
             .get(command.intent.as_str())
@@ -127,14 +127,7 @@ impl SkillRegistry {
             "dispatching command to skill"
         );
 
-        skill
-            .execute(command)
-            .await
-            .map_err(|source| DispatchError::SkillExecution {
-                skill: skill.name().to_string(),
-                intent: command.intent.clone(),
-                source,
-            })
+        Ok(skill)
     }
 }
 
@@ -201,7 +194,6 @@ mod tests {
         };
 
         let res = registry.dispatch(&cmd).await.unwrap();
-        assert_eq!(res.feedback.as_deref(), Some("Playback paused"));
     }
 
     #[test]

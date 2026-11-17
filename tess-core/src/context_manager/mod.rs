@@ -58,3 +58,9 @@ impl ContextManager {
         self.mode = mode;
     }
 }
+
+impl Default for ContextManager {
+   fn default() -> Self {
+       Self::new()
+   } 
+}
