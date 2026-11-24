@@ -1,5 +1,11 @@
 use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
 
+pub mod mute;
+pub mod toggle_wifi;
+pub mod unmute;
+pub mod volume_down;
+pub mod volume_up;
+
 crate::skill! {
     struct SystemSkill;
     name = "system";
@@ -16,6 +22,7 @@ crate::skill! {
             "boost the volume",
         ],
         risk_level: RiskLevel::Low,
+        handler: volume_up::run,
     }
 
     intent "system.volume_down" {
@@ -30,6 +37,7 @@ crate::skill! {
             "reduce the volume",
         ],
         risk_level: RiskLevel::Low,
+        handler: volume_down::run,
     }
 
     intent "system.mute" {
@@ -43,6 +51,7 @@ crate::skill! {
             "silence the music",
         ],
         risk_level: RiskLevel::Low,
+        handler: mute::run,
     }
 
     intent "system.unmute" {
@@ -56,6 +65,7 @@ crate::skill! {
             "unmute the track",
         ],
         risk_level: RiskLevel::Low,
+        handler: unmute::run,
     }
 
     intent "system.toggle_wifi" {
@@ -70,10 +80,8 @@ crate::skill! {
             "disconnect from wifi",
         ],
         risk_level: RiskLevel::Medium,
+        handler: toggle_wifi::run,
     }
 
-    execute(command) {
-        println!("SystemSkill::execute({:?})", command);
-        Ok(ExecutionResult::success())
-    }
+    execute(command) {}
 }

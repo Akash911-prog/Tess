@@ -22,6 +22,7 @@ macro_rules! skill {
                 args: [ $( $arg:expr ),* $(,)? ],
                 exemplars: [ $( $exemplar:literal ),+ $(,)? ],
                 risk_level: $risk_level:expr,
+                handler: $handler:path,
             }
         )+
         execute($cmd:ident) $body:block
@@ -60,12 +61,18 @@ macro_rules! skill {
 
             fn execute<'a>(
                 &'a self,
-                $cmd: &'a $crate::events::Event,
+                command: &'a $crate::events::Event,
             ) -> $crate::registry::BoxFuture<
                 'a,
                 ::std::result::Result<$crate::registry::ExecutionResult, ::anyhow::Error>,
             > {
-                ::std::boxed::Box::pin(async move { $body })
+                match command.intent.as_str() {
+                    $( $intent_id => ::std::boxed::Box::pin( $handler(command)), )+
+
+                    other => ::std::boxed::Box::pin(async move {
+                        Err(::anyhow::anyhow!("skill `{}` has no handler for `{}`", $skill_name, other))
+                    })
+                }
             }
         }
     };

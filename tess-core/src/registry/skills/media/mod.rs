@@ -1,3 +1,10 @@
+pub mod back;
+pub mod next;
+pub mod pause;
+pub mod play;
+pub mod previous;
+pub mod skip;
+
 use anyhow::Ok;
 
 use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
@@ -11,6 +18,7 @@ crate::skill! {
         args: [ArgSpec::optional("app", ArgKind::Text)],
         exemplars: ["pause music", "stop playback", "pause song", "stop the track"],
         risk_level: RiskLevel::Low,
+        handler: pause::run,
     }
 
     intent "media.play" {
@@ -18,6 +26,7 @@ crate::skill! {
         args: [ArgSpec::optional("app", ArgKind::Text)],
         exemplars: ["play music", "resume music", "start the song", "unpause", "continue"],
         risk_level: RiskLevel::Low,
+                handler: play::run,
     }
 
     intent "media.next" {
@@ -31,6 +40,7 @@ crate::skill! {
             "next track please",
         ],
         risk_level: RiskLevel::Low,
+        handler: next::run,
     }
 
     intent "media.previous" {
@@ -43,6 +53,7 @@ crate::skill! {
             "previous track please",
         ],
         risk_level: RiskLevel::Low,
+        handler: previous::run,
     }
 
     intent "media.skip" {
@@ -56,6 +67,7 @@ crate::skill! {
             "skip 10 minutes",
         ],
         risk_level: RiskLevel::Low,
+        handler: skip::run,
     }
 
     intent "media.back" {
@@ -69,10 +81,8 @@ crate::skill! {
             "rewind 10 minutes",
         ],
         risk_level: RiskLevel::Low,
+        handler: back::run,
     }
 
-    execute(command) {
-        println!("MediaSkill::execute({:?})", command);
-        Ok(ExecutionResult::success())
-    }
+    execute(cmd) {}
 }
