@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use tokio::sync::RwLock;
 use tess_core::{
     context_manager::ContextManager,
     event_bus::EventBus,
@@ -9,18 +10,12 @@ use tess_core::{
     parser::Parser,
     policy_gate::{PolicyCheckResult, PolicyGate},
     registry::SkillRegistry,
+    response::{LoggingResponseSink, ResponseSink},
 };
 use tokio::net::windows::named_pipe::ServerOptions;
 
-// #[cfg(feature = "dhat-heap")]
-// #[global_allocator]
-// static ALLOC: dhat::Alloc = dhat::Alloc;
-
 #[tokio::main]
 async fn main() {
-    // #[cfg(feature = "dhat-heap")]
-    // let _profiler = dhat::Profiler::new_heap();
-
     let _guard = init_tracing();
     let global_bus = EventBus::default();
     let global_parser = Arc::new(Parser::default());
@@ -30,8 +25,18 @@ async fn main() {
     );
     let global_extractor = Arc::new(Extractor::new(global_registry.clone()).await);
 
-    let global_context_manager = Arc::new(ContextManager::new());
-    let global_policy_gate = Arc::new(PolicyGate::new());
+    // ContextManager is wrapped in RwLock so the event loop can mutate it
+    // (add_prev_action, set_mode, etc.) while other readers take non-exclusive
+    // read guards.
+    let global_context_manager: Arc<RwLock<ContextManager>> =
+        Arc::new(RwLock::new(ContextManager::new()));
+
+    // PolicyGate needs a registry reference to look up risk levels by intent id.
+    let global_policy_gate = Arc::new(PolicyGate::new(global_registry.clone()));
+
+    // The logging sink is the default until a TTS backend is wired in.
+    // Swap this for any `ResponseSink` implementor without touching the event loop.
+    let global_response_sink: Arc<dyn ResponseSink> = Arc::new(LoggingResponseSink);
 
     global_parser
         .load_catalog(global_registry.catalog())
@@ -46,6 +51,7 @@ async fn main() {
     let extractor = global_extractor.clone();
     let context_manager = global_context_manager.clone();
     let policy_gate = global_policy_gate.clone();
+    let response_sink = global_response_sink.clone();
 
     tokio::spawn(async move {
         while let Ok(event) = rx.recv().await {
@@ -88,13 +94,65 @@ async fn main() {
                         };
 
                         match policy_gate
-                            .security_check(skill, context_manager.clone())
+                            .security_check(command, context_manager.clone())
                             .await
                         {
-                            PolicyCheckResult::Allow { silent } => {}
-                            PolicyCheckResult::Authorize { silent, prompt } => {}
-                            PolicyCheckResult::Confirmation { silent, prompt } => {}
-                            PolicyCheckResult::Deny => {}
+                            PolicyCheckResult::Allow { silent } => {
+                                match skill.execute(command).await {
+                                    Ok(result) => {
+                                        // Record the action in the context history.
+                                        context_manager
+                                            .write()
+                                            .await
+                                            .add_prev_action(command.clone());
+
+                                        // Deliver feedback unless we're running silently.
+                                        if !silent {
+                                            if let Some(feedback) = result.feedback {
+                                                response_sink.speak(&feedback);
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::error!(
+                                            trace_id = %command.trace_id,
+                                            intent = %command.intent,
+                                            error = %e,
+                                            "skill execution failed"
+                                        );
+                                    }
+                                }
+                            }
+
+                            PolicyCheckResult::Confirmation { prompt } => {
+                                // TODO: surface a real confirmation UI / TTS prompt.
+                                // For now, log the prompt and skip execution so the
+                                // user is at least informed in debug output.
+                                tracing::warn!(
+                                    trace_id = %command.trace_id,
+                                    intent = %command.intent,
+                                    %prompt,
+                                    "command requires confirmation — skipping (no UI yet)"
+                                );
+                            }
+
+                            PolicyCheckResult::Authorize { prompt } => {
+                                // TODO: trigger credential/UAC elevation flow.
+                                tracing::warn!(
+                                    trace_id = %command.trace_id,
+                                    intent = %command.intent,
+                                    %prompt,
+                                    "command requires authorisation — skipping (no auth flow yet)"
+                                );
+                            }
+
+                            PolicyCheckResult::Deny => {
+                                tracing::info!(
+                                    trace_id = %command.trace_id,
+                                    intent = %command.intent,
+                                    "command denied by policy gate"
+                                );
+                            }
                         }
                     }
                 }
@@ -128,7 +186,7 @@ async fn main() {
                 Ok(new_server) => new_server,
                 Err(e) => {
                     tracing::error!(error = %e, "failed to create next pipe instance");
-                    break; // can't continue accepting without a fresh instance
+                    break;
                 }
             };
 
@@ -144,7 +202,7 @@ async fn main() {
             tracing::warn!("IPC loop exited unexpectedly.");
         }
         _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Ctrl+C received. Shutting down and saving DHAT profile data...");
+            tracing::info!("Ctrl+C received. Shutting down.");
         }
     }
 }

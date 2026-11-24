@@ -6,5 +6,6 @@ pub mod extractor;
 pub mod ipc;
 pub mod logging;
 pub mod parser;
-pub mod registry;
 pub mod policy_gate;
+pub mod registry;
+pub mod response;
