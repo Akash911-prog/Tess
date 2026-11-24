@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs::File, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use fst::Map;
 use memmap::Mmap;
@@ -54,9 +58,7 @@ pub struct Vocab {
 }
 
 impl Vocab {
-    async fn load(cwd: &PathBuf) -> Result<Self, anyhow::Error> {
-        let model_path = cwd.join(r"models\biotagger");
-
+    async fn load(model_path: &PathBuf) -> Result<Self, anyhow::Error> {
         let vocab_path = model_path.join("vocab.json");
         let fst_path = model_path.join("word2idx.fst");
         let metadata_path = model_path.join("metadata.json");
@@ -224,8 +226,8 @@ pub struct Crf {
 }
 
 impl Crf {
-    pub async fn load(cwd: &PathBuf) -> Result<Self, anyhow::Error> {
-        let path = cwd.join(r"models\biotagger\crf_params.json");
+    pub async fn load(model_path: &PathBuf) -> Result<Self, anyhow::Error> {
+        let path = model_path.join(r"crf_params.json");
         let json = fs::read_to_string(path).await?;
         let params: CrfParams = serde_json::from_str(&json)?;
 
@@ -352,10 +354,16 @@ impl BioTagger {
         /*
          * Both are independent, so load concurrently.
          */
-        let cwd = std::env::current_dir().expect("failed to get current directory");
 
-        let (vocab, runnable, crf) =
-            tokio::join!(Vocab::load(&cwd), Self::load_model(&cwd), Crf::load(&cwd));
+        let model_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("models")
+            .join("biotagger");
+
+        let (vocab, runnable, crf) = tokio::join!(
+            Vocab::load(&model_dir),
+            Self::load_model(&model_dir),
+            Crf::load(&model_dir)
+        );
 
         let token_re =
             Regex::new(r"[A-Za-z']+|\d+|[^\sA-Za-z0-9]").expect("invalid tokenizer regex");
@@ -368,8 +376,8 @@ impl BioTagger {
         }
     }
 
-    async fn load_model(cwd: &PathBuf) -> Result<Runnable, anyhow::Error> {
-        let model_path = cwd.join(r"models\biotagger");
+    async fn load_model(model_path: &PathBuf) -> Result<Runnable, anyhow::Error> {
+        println!("{}", model_path.display());
 
         let model = tract::onnx()?
             .load(model_path.join("model.onnx"))?

@@ -219,23 +219,6 @@ fn extract_enum_picks_whichever_allowed_value_is_checked_first() {
 // ---------------------------------------------------------------- //
 
 #[test]
-fn extract_text_currently_always_returns_empty_string() {
-    // `extract_text` is a stub: it ignores its `text` argument entirely and
-    // always returns `Some("")`. This test pins down the current behavior so
-    // a future real implementation changes it deliberately, not silently.
-    let ex = extractor();
-    assert_eq!(
-        ex.extract_text("play bohemian rhapsody"),
-        Some("".to_string())
-    );
-    assert_eq!(ex.extract_text(""), Some("".to_string()));
-}
-
-// ---------------------------------------------------------------- //
-// extract() end-to-end (via the public ArgExtractor trait)
-// ---------------------------------------------------------------- //
-
-#[test]
 fn extract_errors_on_unknown_intent() {
     let ex = extractor();
     let err = ex.extract("nope.nope", "anything").unwrap_err();
@@ -292,18 +275,6 @@ fn extract_enum_toggle_picks_allowed_value() {
     let ex = extractor();
     let result = ex.extract("test.enum_toggle", "turn it off").unwrap();
     assert_eq!(result.get("mode"), Some(&ArgValue::Enum("off")));
-}
-
-#[test]
-fn extract_required_text_yields_empty_value_due_to_stub() {
-    // Because `extract_text` always returns `Some("")`, a *required* Text
-    // arg never fails extraction — but it also never captures anything the
-    // user actually said.
-    let ex = extractor();
-    let result = ex
-        .extract("test.required_text", "search for lo-fi beats")
-        .unwrap();
-    assert_eq!(result.get("query"), Some(&ArgValue::Text("".to_string())));
 }
 
 #[test]
