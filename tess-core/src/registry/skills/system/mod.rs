@@ -1,4 +1,4 @@
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
+use crate::registry::{ArgKind, ArgSpec, skill::RiskLevel};
 
 pub mod mute;
 pub mod toggle_wifi;

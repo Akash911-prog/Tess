@@ -1,10 +1,14 @@
 use super::*;
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
+use crate::{
+    events::Event,
+    registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel},
+};
 use std::time::Duration;
 
-// A small in-test skill exposing a handful of intents that exercise every
-// `ArgKind`, plus a "mixed" intent used to probe how `extract()` behaves
-// when multiple args are declared together.
+async fn test_handler(_command: &Event) -> Result<ExecutionResult, anyhow::Error> {
+    Ok(ExecutionResult::success())
+}
+
 crate::skill! {
     struct TestSkill;
     name = "test";
@@ -14,6 +18,7 @@ crate::skill! {
         args: [],
         exemplars: ["do nothing"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
     intent "test.required_int" {
@@ -21,6 +26,7 @@ crate::skill! {
         args: [ArgSpec::required("level", ArgKind::Integer)],
         exemplars: ["set level"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
     intent "test.optional_duration" {
@@ -28,6 +34,7 @@ crate::skill! {
         args: [ArgSpec::optional("duration", ArgKind::Duration)],
         exemplars: ["skip"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
     intent "test.enum_toggle" {
@@ -35,6 +42,7 @@ crate::skill! {
         args: [ArgSpec::optional("mode", ArgKind::Enum(&["on", "off"]))],
         exemplars: ["toggle"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
     intent "test.required_text" {
@@ -42,6 +50,7 @@ crate::skill! {
         args: [ArgSpec::required("query", ArgKind::Text)],
         exemplars: ["search"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
     intent "test.mixed" {
@@ -52,11 +61,10 @@ crate::skill! {
         ],
         exemplars: ["mixed"],
         risk_level: RiskLevel::Low,
+        handler: test_handler,
     }
 
-    execute(_command) {
-        Ok(ExecutionResult::success())
-    }
+    execute(_command) {}
 }
 
 fn extractor() -> RuleBasedExtractor {

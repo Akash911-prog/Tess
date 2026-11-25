@@ -5,9 +5,7 @@ pub mod play;
 pub mod previous;
 pub mod skip;
 
-use anyhow::Ok;
-
-use crate::registry::{ArgKind, ArgSpec, ExecutionResult, skill::RiskLevel};
+use crate::registry::{ArgKind, ArgSpec, skill::RiskLevel};
 
 crate::skill! {
     struct MediaSkill;
@@ -15,7 +13,7 @@ crate::skill! {
 
     intent "media.pause" {
         desc: "Pause playback",
-        args: [ArgSpec::optional("app", ArgKind::Text)],
+        args: [ArgSpec::optional("target", ArgKind::Text)],
         exemplars: ["pause music", "stop playback", "pause song", "stop the track"],
         risk_level: RiskLevel::Low,
         handler: pause::run,
@@ -26,7 +24,7 @@ crate::skill! {
         args: [ArgSpec::optional("app", ArgKind::Text)],
         exemplars: ["play music", "resume music", "start the song", "unpause", "continue"],
         risk_level: RiskLevel::Low,
-                handler: play::run,
+        handler: play::run,
     }
 
     intent "media.next" {
